@@ -28,8 +28,9 @@ jobs:
       - run: npm ci
       - run: npm run build
         env:
-          # Для user.github.io/<repo> — "/<repo>"; для кастомного домена или <user>.github.io — пусто.
-          BASE_PATH: ${{ steps.pages.outputs.base_path }}
+          # Сайт отдаётся с корня домена kernell.ru, поэтому префикс не нужен.
+          # Если вернуться на yugoff.github.io/site-kernell, укажите BASE_PATH: /site-kernell
+          BASE_PATH: ""
       - run: touch out/.nojekyll
       - uses: actions/upload-pages-artifact@v3
         with:
