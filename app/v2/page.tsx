@@ -1,6 +1,6 @@
 import { CopyButton } from "@/components/v2/copy-button";
 import { HeroVideo } from "@/components/v2/hero-video";
-import { HueParam } from "@/components/v2/hue-param";
+import { ScrollDots } from "@/components/v2/scroll-dots";
 import { Workflow } from "@/components/v2/workflow";
 import { EMAIL, MAIL_DISCUSS, MAIL_HYPOTHESIS, TELEGRAM_HANDLE, TELEGRAM_URL } from "@/lib/contact";
 
@@ -14,10 +14,12 @@ const nav = [
   { name: "контакты", href: "#contact" },
 ];
 
-// Кейсы и цифры — из презентации «ML-Uslugi.pdf».
+// Отрасли, кейсы и цифры — из презентации «ML-Uslugi.pdf».
+const industries = ["медицина", "логистика", "недвижимость", "промышленность"];
+
 const cases = [
   {
-    tag: "логистика · on-prem",
+    tag: "логистика · на серверах клиента",
     metric: "−90%",
     outcome: "времени на проверку документов",
     title: "Проверка логистических документов",
@@ -103,7 +105,7 @@ function Contacts() {
       <span className="cmd-label">почта</span>
       <pre className="cmd">
         <code>
-          <span className="prompt">$</span> mail <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
+          <span className="prompt">$</span> написать <a href={`mailto:${EMAIL}`}>{EMAIL}</a>
         </code>
         <CopyButton text={EMAIL} label="Скопировать почту" />
       </pre>
@@ -114,7 +116,6 @@ function Contacts() {
 export default function V2Page() {
   return (
     <>
-      <HueParam />
       <a className="skip-link" href="#main">
         к содержимому
       </a>
@@ -143,6 +144,14 @@ export default function V2Page() {
             <p className="hero-sub">
               Находим, где ИИ действительно полезен бизнесу, и превращаем идею в <strong>работающий продукт</strong>.
             </p>
+            <p className="industries">
+              <span className="industries-label">проекты в отраслях:</span>
+              {industries.map((name) => (
+                <span key={name} className="industry">
+                  {name}
+                </span>
+              ))}
+            </p>
           </div>
           <HeroVideo src={asset("/v2/brag.mp4")} poster={asset("/v2/brag.jpg")} />
         </div>
@@ -151,7 +160,7 @@ export default function V2Page() {
           <Contacts />
           <aside className="offer" aria-labelledby="offer-title">
             <h2 className="offer-title" id="offer-title">
-              начнём <span className="emph">с PoC.</span>
+              Начнём <span className="emph">с PoC.</span>
             </h2>
             <p className="offer-copy">
               Быстрый прототип на ваших реальных данных покажет, работает ли идея, ещё до вложений в полноценную
@@ -173,7 +182,7 @@ export default function V2Page() {
                 как работаем<span className="paper-tag">3 шага</span>
               </span>
               <span className="paper-tagline">
-                от задачи
+                От задачи
                 <br />
                 <span className="emph">до результата.</span>
               </span>
@@ -200,7 +209,8 @@ export default function V2Page() {
           </div>
 
           <div className="set">
-            <div className="cards">
+            {/* На телефоне — горизонтальная лента, листается пальцем; фокус нужен, чтобы листать с клавиатуры */}
+            <div className="cards" id="cases-list" role="region" aria-label="Кейсы" tabIndex={0}>
               {cases.map((item, i) => (
                 <article key={item.title} className="card">
                   <div className="card-media">
@@ -237,6 +247,7 @@ export default function V2Page() {
                 </div>
               </article>
             </div>
+            <ScrollDots targetId="cases-list" count={cases.length + 1} />
           </div>
 
           <div className="set" id="why" aria-labelledby="why-title">
@@ -268,7 +279,7 @@ export default function V2Page() {
         <section className="outro" id="contact" aria-labelledby="contact-title">
           <div className="outro-inner">
             <h2 className="outro-headline" id="contact-title">
-              давайте
+              Давайте
               <br />
               <span className="emph">обсудим.</span>
             </h2>

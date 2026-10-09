@@ -4,7 +4,6 @@ import "./v2.css";
 
 const geist = Geist({
   subsets: ["latin", "cyrillic"],
-  style: ["normal", "italic"],
   variable: "--font-geist",
 });
 const geistMono = Geist_Mono({
@@ -26,7 +25,7 @@ export const metadata: Metadata = {
   robots: { index: false, follow: false },
 };
 
-export const viewport: Viewport = { themeColor: "#e26a3a" };
+export const viewport: Viewport = { themeColor: "#f7f3ec" };
 
 export default function V2Layout({ children }: { children: React.ReactNode }) {
   return <div className={`k2 ${geist.variable} ${geistMono.variable}`}>{children}</div>;

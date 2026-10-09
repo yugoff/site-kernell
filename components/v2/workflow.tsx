@@ -79,7 +79,16 @@ export function Workflow({ children }: { children: React.ReactNode }) {
         <ol className="steps" style={{ "--step-ms": `${STEP_MS}ms` } as React.CSSProperties}>
           {steps.map((step, i) => (
             <li key={step.number} className="step">
-              <button type="button" className="step-btn" aria-pressed={active === i} onClick={() => setActive(i)}>
+              <button
+                type="button"
+                className="step-btn"
+                aria-pressed={active === i}
+                onClick={() => {
+                  // Выбрал шаг сам — больше не листаем, чтобы не мешать читать.
+                  setActive(i);
+                  setAuto(false);
+                }}
+              >
                 <span className="step-num">{step.number}</span>
                 <span className="step-title">{step.title}</span>
                 <span className="step-text">{step.text}</span>
