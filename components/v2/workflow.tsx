@@ -1,40 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-
-const steps = [
-  {
-    number: "I",
-    title: "Разбираемся в задаче",
-    text: "Погружаемся в процессы, данные и KPI, чтобы найти точку максимального эффекта.",
-    code: `audit.business({
-  processes: 'analyze',
-  data: 'connect',
-  kpi: 'define'
-})`,
-  },
-  {
-    number: "II",
-    title: "Проверяем гипотезу",
-    text: "Запускаем быстрый PoC на реальных данных и измеряем, работает ли решение.",
-    code: `poc.run({
-  hypothesis: 'validate',
-  data: 'real-world',
-  metric: 'business-impact'
-})`,
-  },
-  {
-    number: "III",
-    title: "Создаём и развиваем",
-    text: "Превращаем подтверждённую гипотезу в рабочий продукт и масштабируем его вместе с бизнесом.",
-    code: `product.deploy({
-  target: 'production',
-  feedback: 'continuous'
-})
-
-// ready to scale`,
-  },
-];
+import { steps } from "@/lib/site-content";
 
 const STEP_MS = 5000;
 
