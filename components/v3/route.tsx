@@ -85,6 +85,7 @@ export function Route() {
         const el = root.current!;
         const { desktop } = ctx.conditions!;
         const prism = el.querySelector<HTMLElement>(".k3-prism")!;
+        const stage = el.querySelector<HTMLElement>(".k3-prism-stage")!;
         const shades = gsap.utils.toArray<HTMLElement>(".k3-face-shade", el);
         const items = gsap.utils.toArray<HTMLElement>(".k3-steps li", el);
         const buttons = gsap.utils.toArray<HTMLButtonElement>(".k3-step", el);
@@ -105,14 +106,15 @@ export function Route() {
 
         // Доводка к соседней грани по направлению прокрутки. Стандартная доводка GSAP опирается на прогноз
         // инерции, и быстрый свайп на телефоне проскакивал среднюю грань.
-        const marks = steps.map((_, i) => i / (steps.length - 1)); // грани на прогрессе 0, 0.5, 1
         let tl: gsap.core.Timeline;
         const stepSnap = (predicted: number) => {
           const st = tl?.scrollTrigger;
           if (!st) return predicted;
+          // положения граней на шкале прогресса — из меток s0, s1, s2
+          const marks = steps.map((_, i) => tl.labels[`s${i}`] / tl.duration());
           const cur = st.progress;
           return st.direction > 0
-            ? (marks.find((m) => m > cur + 0.001) ?? 1)
+            ? (marks.find((m) => m > cur + 0.001) ?? marks[marks.length - 1])
             : ([...marks].reverse().find((m) => m < cur - 0.001) ?? 0);
         };
 
@@ -128,15 +130,15 @@ export function Route() {
                 scrub: 0.8,
                 snap: { snapTo: (v: number) => stepSnap(v), duration: { min: 0.2, max: 0.6 }, delay: 0.1, ease: "power1.inOut" },
               }
-            : // телефон: призма останавливается посередине экрана и проворачивается через все три грани,
-              // иначе последняя грань наступала, когда призма уже уезжала с экрана
+            : // Телефон: без закрепления и доводки — прокрутка остаётся обычной. Поворот идёт ровно на том
+              // отрезке, где призма видна целиком: от момента, когда она вся показалась снизу, и пока
+              // её верх не дошёл до шапки.
               {
-                trigger: el.querySelector(".k3-prism-stage"),
-                pin: true,
-                start: "center 55%",
-                end: "+=1400", // ~700 px на грань: резкий свайп не проскакивает среднюю грань
-                scrub: 0.6,
-                snap: { snapTo: (v: number) => stepSnap(v), duration: { min: 0.2, max: 0.5 }, delay: 0.1, ease: "power1.inOut" },
+                trigger: stage,
+                start: "bottom bottom",
+                end: () => `+=${Math.max(240, window.innerHeight - stage.offsetHeight - 72)}`,
+                scrub: 0.5,
+                invalidateOnRefresh: true,
               },
         });
         tl.addLabel("s0", 0);
@@ -146,6 +148,7 @@ export function Route() {
             .to(prism, { keyframes: { scale: [1, 0.9, 1] }, duration: 1, ease: "none" }, at)
             .addLabel(`s${k + 1}`, at + 1);
         });
+        tl.to({}, { duration: 0.3 }); // пауза на последней грани, пока призма ещё целиком на экране
 
         // Клик по шагу — прокрутка до его грани
         const st = tl.scrollTrigger!;

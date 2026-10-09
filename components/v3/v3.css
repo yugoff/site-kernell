@@ -595,7 +595,12 @@ body:has(.k3) { background: #f7f3ee; }
   }
   .k3-track::-webkit-scrollbar { display: none; }
   .k3-card { flex: 0 0 84%; scroll-snap-align: start; }
-  .k3-card.is-cta .k3-card-media { min-height: 0; }
+  /* В ленте все карточки одной высоты: у верхней части фиксированная высота вместо пропорции 16:10,
+     иначе карточки с длинной подписью вытягивались, а остальные — нет */
+  .k3-card-media { aspect-ratio: auto; height: 250px; }
+  .k3-card-metric { font-size: 46px; }
+  .k3-card.is-cta { grid-template-rows: auto auto; }
+  .k3-card.is-cta .k3-card-media { min-height: 0; height: 250px; }
 }
 .k3 .scroll-dots { display: none; }
 @media (max-width: 760px) {
