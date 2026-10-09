@@ -106,14 +106,34 @@ export function DocCheck() {
         build(tl, true);
       });
 
-      // Телефон: без закрепления — сцена проигрывается, когда доходит до экрана
+      // Телефон: без закрепления. Каждая часть сцены запускается, когда сама появляется на экране, и идёт
+      // быстро. Раньше всё шло одной цепочкой от появления документов, и замечания со шкалой, стоящие ниже,
+      // проявлялись с заметной задержкой.
       mm.add(MQ.mobile, () => {
-        const tl = gsap.timeline({
-          defaults: { ease: "power2.out" },
-          scrollTrigger: { trigger: el.querySelector(".k3-stage"), start: "top 70%", toggleActions: "play none none none" },
-        });
-        build(tl, false);
-        tl.timeScale(1.4);
+        const when = (sel: string) => ({ trigger: q(sel)[0], start: "top 88%", toggleActions: "play none none none" });
+
+        // Документы раскладываются, сканер пробегает, строки с ошибками подсвечиваются
+        const docs = gsap.timeline({ defaults: { ease: "power2.out" }, scrollTrigger: when(".k3-docs") });
+        docs
+          .from(q(".k3-mini"), { y: 40, autoAlpha: 0, rotation: (i) => (i % 2 ? 3 : -3), duration: 0.6, stagger: 0.08 })
+          .fromTo(q(".k3-scanline"), { autoAlpha: 1, y: 0 }, { y: () => q(".k3-docs")[0].offsetHeight, duration: 0.8, ease: "none" }, 0.4)
+          .to(q(".k3-scanline"), { autoAlpha: 0, duration: 0.15 })
+          .fromTo(
+            q(".k3-mini .k3-row.is-bad"),
+            { boxShadow: "inset 0 0 0 0px rgba(101,26,45,0)", backgroundColor: "rgba(101,26,45,0)", color: "#5d5557" },
+            { boxShadow: "inset 0 0 0 1.5px rgba(101,26,45,1)", backgroundColor: "rgba(101,26,45,0.1)", color: "#651a2d", duration: 0.35, stagger: 0.06 },
+            0.9,
+          );
+
+        // Замечания — когда до них доскроллили
+        gsap.from(q(".k3-remark"), { autoAlpha: 0, x: 20, duration: 0.4, stagger: 0.1, ease: "power2.out", scrollTrigger: when(".k3-remarks") });
+
+        // Шкала: сжимается до 10%, число досчитывается, обводка рисуется — около секунды
+        const meter = gsap.timeline({ defaults: { ease: "power2.out" }, scrollTrigger: when(".k3-meter") });
+        meter.fromTo(q(".k3-meter-fill"), { scaleX: 1 }, { scaleX: 0.1, duration: 0.8, ease: "power2.inOut" }, 0);
+        const c = { v: 0 };
+        meter.to(c, { v: 90, duration: 0.8, onUpdate: () => void (meterNum.textContent = `−${Math.round(c.v)}%`) }, 0);
+        meter.from(q(".k3-meter-num path"), { drawSVG: "0%", duration: 0.6, ease: "power2.inOut" }, 0.6);
       });
     },
     { scope: root },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { gsap, SplitText, useGSAP, MQ, RU_CHARS, safeHandler } from "./gsap";
+import { gsap, ScrollTrigger, SplitText, useGSAP, MQ, RU_CHARS, safeHandler } from "./gsap";
 import { steps } from "@/lib/site-content";
 
 /* Мини-иллюстрации граней: смысл шага, без цифр */
@@ -91,75 +91,116 @@ export function Route() {
         const buttons = gsap.utils.toArray<HTMLButtonElement>(".k3-step", el);
         el.classList.add("is-live");
 
+        const dots = gsap.utils.toArray<HTMLElement>(".k3-prism-dots i", el);
+        const n = steps.length;
+
         // Поворот хранится в объекте: от него считаем и наклон граней к свету, и текущий шаг
         const turn = { y: 0 };
+        const current = () => (((Math.round(-turn.y / 120) % n) + n) % n); // грань по кругу: угол может уйти за 360°
         const render = () => {
           gsap.set(prism, { rotationY: turn.y });
           shades.forEach((s, i) => {
             const facing = Math.cos(((i * 120 + turn.y) * Math.PI) / 180);
             gsap.set(s, { opacity: (1 - Math.max(0, facing)) * 0.55 });
           });
-          const active = gsap.utils.clamp(0, steps.length - 1, Math.round(-turn.y / 120));
+          const active = current();
           items.forEach((li, i) => li.classList.toggle("is-active", i === active));
+          dots.forEach((d, i) => d.classList.toggle("is-active", i === active));
         };
         render();
 
-        // Доводка к соседней грани по направлению прокрутки. Стандартная доводка GSAP опирается на прогноз
-        // инерции, и быстрый свайп на телефоне проскакивал среднюю грань.
-        let tl: gsap.core.Timeline;
-        const stepSnap = (predicted: number) => {
-          const st = tl?.scrollTrigger;
-          if (!st) return predicted;
-          // положения граней на шкале прогресса — из меток s0, s1, s2
-          const marks = steps.map((_, i) => tl.labels[`s${i}`] / tl.duration());
-          const cur = st.progress;
-          return st.direction > 0
-            ? (marks.find((m) => m > cur + 0.001) ?? marks[marks.length - 1])
-            : ([...marks].reverse().find((m) => m < cur - 0.001) ?? 0);
-        };
+        let offs: (() => void)[] = [];
 
-        // Шаг → грань: поворот на 120°, на середине поворота призма чуть «отходит» назад
-        tl = gsap.timeline({
-          defaults: { ease: "power2.inOut" },
-          scrollTrigger: desktop
-            ? {
-                trigger: el,
-                pin: el.querySelector(".k3-how-pin"),
-                start: "top top",
-                end: "+=1800",
-                scrub: 0.8,
-                snap: { snapTo: (v: number) => stepSnap(v), duration: { min: 0.2, max: 0.6 }, delay: 0.1, ease: "power1.inOut" },
-              }
-            : // Телефон: без закрепления и доводки — прокрутка остаётся обычной. Поворот идёт ровно на том
-              // отрезке, где призма видна целиком: от момента, когда она вся показалась снизу, и пока
-              // её верх не дошёл до шапки.
-              {
-                trigger: stage,
-                start: "bottom bottom",
-                end: () => `+=${Math.max(240, window.innerHeight - stage.offsetHeight - 72)}`,
-                scrub: 0.5,
-                invalidateOnRefresh: true,
-              },
-        });
-        tl.addLabel("s0", 0);
-        steps.slice(1).forEach((_, k) => {
-          const at = 0.3 + k * 1.3;
-          tl.to(turn, { y: -120 * (k + 1), duration: 1, onUpdate: render }, at)
-            .to(prism, { keyframes: { scale: [1, 0.9, 1] }, duration: 1, ease: "none" }, at)
-            .addLabel(`s${k + 1}`, at + 1);
-        });
-        tl.to({}, { duration: 0.3 }); // пауза на последней грани, пока призма ещё целиком на экране
+        if (desktop) {
+          // Доводка к соседней грани по направлению прокрутки. Стандартная доводка GSAP опирается на прогноз
+          // инерции, и быстрый бросок трекпадом проскакивал среднюю грань.
+          let tl: gsap.core.Timeline;
+          const stepSnap = (predicted: number) => {
+            const st = tl?.scrollTrigger;
+            if (!st) return predicted;
+            // положения граней на шкале прогресса — из меток s0, s1, s2
+            const marks = steps.map((_, i) => tl.labels[`s${i}`] / tl.duration());
+            const cur = st.progress;
+            return st.direction > 0
+              ? (marks.find((m) => m > cur + 0.001) ?? marks[marks.length - 1])
+              : ([...marks].reverse().find((m) => m < cur - 0.001) ?? 0);
+          };
 
-        // Клик по шагу — прокрутка до его грани
-        const st = tl.scrollTrigger!;
-        const offs = buttons.map((btn, i) => {
-          const go = safeHandler(contextSafe, () => {
-            const y = st.start + (st.end - st.start) * (tl.labels[`s${i}`] / tl.duration());
-            window.scrollTo({ top: y, behavior: "smooth" });
+          // Десктоп: секция закреплена, прокрутка поворачивает призму на 120° за шаг,
+          // на середине поворота призма чуть «отходит» назад
+          tl = gsap.timeline({
+            defaults: { ease: "power2.inOut" },
+            scrollTrigger: {
+              trigger: el,
+              pin: el.querySelector(".k3-how-pin"),
+              start: "top top",
+              end: "+=1800",
+              scrub: 0.8,
+              snap: { snapTo: (v: number) => stepSnap(v), duration: { min: 0.2, max: 0.6 }, delay: 0.1, ease: "power1.inOut" },
+            },
           });
-          btn.addEventListener("click", go);
-          return () => btn.removeEventListener("click", go);
-        });
+          tl.addLabel("s0", 0);
+          steps.slice(1).forEach((_, k) => {
+            const at = 0.3 + k * 1.3;
+            tl.to(turn, { y: -120 * (k + 1), duration: 1, onUpdate: render }, at)
+              .to(prism, { keyframes: { scale: [1, 0.9, 1] }, duration: 1, ease: "none" }, at)
+              .addLabel(`s${k + 1}`, at + 1);
+          });
+          tl.to({}, { duration: 0.3 }); // пауза на последней грани перед тем, как секция отпустит
+
+          // Клик по шагу — прокрутка до его грани
+          const st = tl.scrollTrigger!;
+          offs = buttons.map((btn, i) => {
+            const go = safeHandler(contextSafe, () => {
+              const y = st.start + (st.end - st.start) * (tl.labels[`s${i}`] / tl.duration());
+              window.scrollTo({ top: y, behavior: "smooth" });
+            });
+            btn.addEventListener("click", go);
+            return () => btn.removeEventListener("click", go);
+          });
+        } else {
+          // Телефон: призма сама поворачивается на следующую грань каждые 3,5 с — по кругу, всегда в одну
+          // сторону — и только пока видна на экране. Прокрутка на поворот не влияет.
+          const INTERVAL = 3.5;
+          const turnBy = (faces: number) => {
+            if (!faces) return;
+            const from = Math.round(turn.y / 120) * 120; // если касание пришло посреди поворота — от ближайшей грани
+            gsap
+              .timeline()
+              .to(turn, { y: from - 120 * faces, duration: 1, ease: "power2.inOut", onUpdate: render, overwrite: true })
+              .to(prism, { keyframes: { scale: [1, 0.9, 1] }, duration: 1, ease: "none" }, 0);
+          };
+          const timer = gsap
+            .delayedCall(INTERVAL, () => {
+              turnBy(1);
+              timer.restart(true);
+            })
+            .pause();
+          ScrollTrigger.create({
+            trigger: stage,
+            start: "top 85%",
+            end: "bottom 15%",
+            onToggle: (self) => (self.isActive ? timer.restart(true) : timer.pause()),
+          });
+
+          // Касание призмы — сразу следующая грань; клик по шагу в списке — его грань
+          const onTap = safeHandler(contextSafe, () => {
+            turnBy(1);
+            timer.restart(true);
+          });
+          stage.addEventListener("click", onTap);
+          offs = [
+            () => stage.removeEventListener("click", onTap),
+            ...buttons.map((btn, i) => {
+              const go = safeHandler(contextSafe, () => {
+                turnBy((((i - current()) % n) + n) % n);
+                timer.restart(true);
+              });
+              btn.addEventListener("click", go);
+              return () => btn.removeEventListener("click", go);
+            }),
+          ];
+        }
 
         // Призма слегка покачивается сама, чтобы была «живой» и между шагами
         gsap.to(el.querySelector(".k3-prism-float"), { y: -10, rotationX: -4, duration: 2.6, ease: "sine.inOut", repeat: -1, yoyo: true });
@@ -247,6 +288,11 @@ export function Route() {
                   );
                 })}
               </div>
+            </div>
+            <div className="k3-prism-dots">
+              {steps.map((st) => (
+                <i key={st.number} />
+              ))}
             </div>
           </div>
         </div>
