@@ -60,7 +60,7 @@ export function Outro() {
             Опишите задачу — предложим варианты решения и оценку сроков в течение 1–2 рабочих дней.
           </p>
           <div className="k3-magnet-zone">
-            <a className="k3-magnet" href={MAIL_DISCUSS} data-cursor="написать">
+            <a className="k3-magnet" href={MAIL_DISCUSS}>
               обсудить{" "}
               <br />
               задачу

@@ -1,17 +1,18 @@
 "use client";
 
 import { useRef } from "react";
-import { gsap, ScrollTrigger, useGSAP, MQ, safeHandler } from "./gsap";
+import { gsap, ScrollTrigger, useGSAP, MQ } from "./gsap";
 import { MAIL_DISCUSS } from "@/lib/contact";
 
 const nav = [
   { name: "в деле", href: "#demo" },
+  { name: "ассистент", href: "#assistant" },
   { name: "как работаем", href: "#how" },
   { name: "кейсы", href: "#cases" },
   { name: "почему мы", href: "#why" },
 ];
 
-/** Шапка (прячется при прокрутке вниз), полоса прогресса и кружок-курсор на десктопе. */
+/** Шапка (прячется при прокрутке вниз) и полоса прогресса прокрутки. */
 export function Chrome() {
   const root = useRef<HTMLDivElement>(null);
 
@@ -19,8 +20,6 @@ export function Chrome() {
     () => {
       const header = root.current!.querySelector<HTMLElement>(".k3-header")!;
       const progress = root.current!.querySelector<HTMLElement>(".k3-progress")!;
-      const cursor = root.current!.querySelector<HTMLElement>(".k3-cursor")!;
-      const label = cursor.querySelector("span")!;
 
       // Прогресс прокрутки всей страницы
       gsap.to(progress, {
@@ -42,35 +41,6 @@ export function Chrome() {
             else if (self.direction === -1) show.play();
           },
         });
-      });
-
-      mm.add(MQ.finePointer, (_ctx, contextSafe) => {
-        gsap.set(cursor, { display: "grid", autoAlpha: 0 });
-        const xTo = gsap.quickTo(cursor, "x", { duration: 0.35, ease: "power3" });
-        const yTo = gsap.quickTo(cursor, "y", { duration: 0.35, ease: "power3" });
-
-        const onMove = safeHandler(contextSafe, (e: PointerEvent) => {
-          gsap.to(cursor, { autoAlpha: 1, duration: 0.2, overwrite: "auto" });
-          xTo(e.clientX);
-          yTo(e.clientY);
-        });
-        const onOver = safeHandler(contextSafe, (e: PointerEvent) => {
-          const target = (e.target as HTMLElement).closest<HTMLElement>("a, button, [data-cursor]");
-          const text = target?.dataset.cursor ?? "";
-          label.textContent = text;
-          gsap.to(cursor, { scale: target ? (text ? 2.4 : 1.6) : 1, duration: 0.3, ease: "power3.out", overwrite: "auto" });
-          gsap.to(label, { autoAlpha: text ? 1 : 0, duration: 0.2, overwrite: "auto" });
-        });
-        const onLeave = safeHandler(contextSafe, () => gsap.to(cursor, { autoAlpha: 0, duration: 0.2 }));
-
-        window.addEventListener("pointermove", onMove);
-        document.addEventListener("pointerover", onOver);
-        document.documentElement.addEventListener("pointerleave", onLeave);
-        return () => {
-          window.removeEventListener("pointermove", onMove);
-          document.removeEventListener("pointerover", onOver);
-          document.documentElement.removeEventListener("pointerleave", onLeave);
-        };
       });
 
       // Шрифты могут догрузиться после расчёта позиций — пересчитываем триггеры
@@ -99,9 +69,6 @@ export function Chrome() {
           </a>
         </div>
       </header>
-      <div className="k3-cursor" aria-hidden="true">
-        <span />
-      </div>
     </div>
   );
 }

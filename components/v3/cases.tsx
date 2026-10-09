@@ -103,7 +103,7 @@ export function Cases() {
               </article>
             ))}
             <article className="k3-card is-cta">
-              <a className="k3-card-media" href="#contact" data-cursor="обсудить">
+              <a className="k3-card-media" href="#contact">
                 <span className="k3-cta-word">
                   ваша задача
                   <br />
