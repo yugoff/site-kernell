@@ -58,8 +58,11 @@ function ProductVisual() {
       </text>
       <path d="M236 34a26 26 0 1 1-24 16" className="v-line" />
       <path d="M206 44l6 7 8-5" className="v-line" />
-      <text x="238" y="104" textAnchor="middle" className="v-text">
-        обратная связь
+      <text x="234" y="96" textAnchor="middle" className="v-text">
+        обратная
+      </text>
+      <text x="234" y="111" textAnchor="middle" className="v-text">
+        связь
       </text>
     </svg>
   );
@@ -100,8 +103,21 @@ export function Route() {
         };
         render();
 
+        // Доводка к соседней грани по направлению прокрутки. Стандартная доводка GSAP опирается на прогноз
+        // инерции, и быстрый свайп на телефоне проскакивал среднюю грань.
+        const marks = steps.map((_, i) => i / (steps.length - 1)); // грани на прогрессе 0, 0.5, 1
+        let tl: gsap.core.Timeline;
+        const stepSnap = (predicted: number) => {
+          const st = tl?.scrollTrigger;
+          if (!st) return predicted;
+          const cur = st.progress;
+          return st.direction > 0
+            ? (marks.find((m) => m > cur + 0.001) ?? 1)
+            : ([...marks].reverse().find((m) => m < cur - 0.001) ?? 0);
+        };
+
         // Шаг → грань: поворот на 120°, на середине поворота призма чуть «отходит» назад
-        const tl = gsap.timeline({
+        tl = gsap.timeline({
           defaults: { ease: "power2.inOut" },
           scrollTrigger: desktop
             ? {
@@ -110,10 +126,18 @@ export function Route() {
                 start: "top top",
                 end: "+=1800",
                 scrub: 0.8,
-                snap: { snapTo: "labels", duration: { min: 0.2, max: 0.6 }, delay: 0.1, ease: "power1.inOut" },
+                snap: { snapTo: (v: number) => stepSnap(v), duration: { min: 0.2, max: 0.6 }, delay: 0.1, ease: "power1.inOut" },
               }
-            : // телефон: без закрепления, призма проворачивается, пока сама видна на экране
-              { trigger: el.querySelector(".k3-prism-stage"), start: "top 85%", end: "bottom 15%", scrub: 0.6 },
+            : // телефон: призма останавливается посередине экрана и проворачивается через все три грани,
+              // иначе последняя грань наступала, когда призма уже уезжала с экрана
+              {
+                trigger: el.querySelector(".k3-prism-stage"),
+                pin: true,
+                start: "center 55%",
+                end: "+=1400", // ~700 px на грань: резкий свайп не проскакивает среднюю грань
+                scrub: 0.6,
+                snap: { snapTo: (v: number) => stepSnap(v), duration: { min: 0.2, max: 0.5 }, delay: 0.1, ease: "power1.inOut" },
+              },
         });
         tl.addLabel("s0", 0);
         steps.slice(1).forEach((_, k) => {

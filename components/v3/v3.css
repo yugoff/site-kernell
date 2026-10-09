@@ -528,7 +528,7 @@ body:has(.k3) { background: #f7f3ee; }
   .k3-how-pin { min-height: auto; padding-block: clamp(88px, 11vw, 160px); }
   .k3-how-grid { grid-template-columns: minmax(0, 1fr); }
   .k3-prism-stage { height: 420px; }
-  .k3-prism { --w: 290px; height: 350px; }
+  .k3-prism { --w: min(290px, calc(100vw - 72px)); height: calc(var(--w) * 1.2); } /* на узком экране не упирается в край */
   .k3-face { padding: 22px; }
   .k3-face-title { font-size: 24px; }
 }
