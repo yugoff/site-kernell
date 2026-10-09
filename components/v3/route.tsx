@@ -1,10 +1,76 @@
 "use client";
 
 import { useRef } from "react";
-import { gsap, SplitText, useGSAP, MQ, RU_CHARS } from "./gsap";
+import { gsap, SplitText, useGSAP, MQ, RU_CHARS, safeHandler } from "./gsap";
 import { steps } from "@/lib/site-content";
 
-/** «Как работаем»: линия маршрута прорисовывается при прокрутке, по ней едет точка, шаги выезжают навстречу. */
+/* Мини-иллюстрации граней: смысл шага, без цифр */
+function MapVisual() {
+  return (
+    <svg viewBox="0 0 280 120" aria-hidden="true">
+      {[
+        ["процессы", 18],
+        ["данные", 60],
+        ["KPI", 102],
+      ].map(([label, y]) => (
+        <g key={label as string}>
+          <rect x="0" y={(y as number) - 13} width="92" height="26" rx="13" className="v-pill" />
+          <text x="46" y={(y as number) + 4} textAnchor="middle" className="v-text">
+            {label}
+          </text>
+          <path d={`M92 ${y} C150 ${y} 160 60 206 60`} className="v-line" />
+        </g>
+      ))}
+      <circle cx="232" cy="60" r="26" className="v-ring" />
+      <circle cx="232" cy="60" r="14" className="v-ring" />
+      <circle cx="232" cy="60" r="5" className="v-dot" />
+    </svg>
+  );
+}
+
+function ChartVisual() {
+  return (
+    <svg viewBox="0 0 280 120" aria-hidden="true">
+      <path d="M8 112H272M8 112V8" className="v-axis" />
+      <path d="M8 52H272" className="v-threshold" />
+      <text x="16" y="70" className="v-text">
+        порог эффекта
+      </text>
+      <path d="M8 100 C50 96 70 88 100 80 S150 66 175 52 230 22 262 16" className="v-line" />
+      <circle cx="262" cy="16" r="5" className="v-dot" />
+    </svg>
+  );
+}
+
+function ProductVisual() {
+  return (
+    <svg viewBox="0 0 280 120" aria-hidden="true">
+      <rect x="1" y="1" width="186" height="118" rx="10" className="v-window" />
+      <circle cx="16" cy="14" r="3.5" className="v-dot" />
+      <circle cx="28" cy="14" r="3.5" className="v-faint" />
+      <circle cx="40" cy="14" r="3.5" className="v-faint" />
+      <rect x="14" y="36" width="120" height="8" rx="4" className="v-faint" />
+      <rect x="14" y="54" width="150" height="8" rx="4" className="v-faint" />
+      <rect x="14" y="72" width="96" height="8" rx="4" className="v-faint" />
+      <rect x="14" y="92" width="86" height="18" rx="9" className="v-pill" />
+      <text x="57" y="105" textAnchor="middle" className="v-text">
+        в продакшне
+      </text>
+      <path d="M236 34a26 26 0 1 1-24 16" className="v-line" />
+      <path d="M206 44l6 7 8-5" className="v-line" />
+      <text x="238" y="104" textAnchor="middle" className="v-text">
+        обратная связь
+      </text>
+    </svg>
+  );
+}
+
+const visuals = [MapVisual, ChartVisual, ProductVisual];
+
+/**
+ * «Как работаем»: трёхгранная призма — три шага, три грани. Прокрутка поворачивает её на 120° за шаг,
+ * список слева подсвечивает текущий шаг, клик по шагу докручивает к нему.
+ */
 export function Route() {
   const root = useRef<HTMLElement>(null);
 
@@ -12,21 +78,71 @@ export function Route() {
     () => {
       const mm = gsap.matchMedia();
 
-      mm.add({ motion: MQ.motion, wide: "(min-width: 761px)" }, (ctx) => {
-        if (!ctx.conditions!.motion) return;
+      mm.add({ desktop: MQ.desktop, mobile: MQ.mobile }, (ctx, contextSafe) => {
         const el = root.current!;
-        const route = el.querySelector<HTMLElement>(".k3-route")!;
-        const dot = el.querySelector<HTMLElement>(".k3-route-dot")!;
-        const wide = ctx.conditions!.wide;
+        const { desktop } = ctx.conditions!;
+        const prism = el.querySelector<HTMLElement>(".k3-prism")!;
+        const shades = gsap.utils.toArray<HTMLElement>(".k3-face-shade", el);
+        const items = gsap.utils.toArray<HTMLElement>(".k3-steps li", el);
+        const buttons = gsap.utils.toArray<HTMLButtonElement>(".k3-step", el);
+        el.classList.add("is-live");
 
-        // Заголовок: строка поднимается из-под маски, плашка раскрывается
+        // Поворот хранится в объекте: от него считаем и наклон граней к свету, и текущий шаг
+        const turn = { y: 0 };
+        const render = () => {
+          gsap.set(prism, { rotationY: turn.y });
+          shades.forEach((s, i) => {
+            const facing = Math.cos(((i * 120 + turn.y) * Math.PI) / 180);
+            gsap.set(s, { opacity: (1 - Math.max(0, facing)) * 0.55 });
+          });
+          const active = gsap.utils.clamp(0, steps.length - 1, Math.round(-turn.y / 120));
+          items.forEach((li, i) => li.classList.toggle("is-active", i === active));
+        };
+        render();
+
+        // Шаг → грань: поворот на 120°, на середине поворота призма чуть «отходит» назад
+        const tl = gsap.timeline({
+          defaults: { ease: "power2.inOut" },
+          scrollTrigger: desktop
+            ? {
+                trigger: el,
+                pin: el.querySelector(".k3-how-pin"),
+                start: "top top",
+                end: "+=1800",
+                scrub: 0.8,
+                snap: { snapTo: "labels", duration: { min: 0.2, max: 0.6 }, delay: 0.1, ease: "power1.inOut" },
+              }
+            : // телефон: без закрепления, призма проворачивается, пока сама видна на экране
+              { trigger: el.querySelector(".k3-prism-stage"), start: "top 85%", end: "bottom 15%", scrub: 0.6 },
+        });
+        tl.addLabel("s0", 0);
+        steps.slice(1).forEach((_, k) => {
+          const at = 0.3 + k * 1.3;
+          tl.to(turn, { y: -120 * (k + 1), duration: 1, onUpdate: render }, at)
+            .to(prism, { keyframes: { scale: [1, 0.9, 1] }, duration: 1, ease: "none" }, at)
+            .addLabel(`s${k + 1}`, at + 1);
+        });
+
+        // Клик по шагу — прокрутка до его грани
+        const st = tl.scrollTrigger!;
+        const offs = buttons.map((btn, i) => {
+          const go = safeHandler(contextSafe, () => {
+            const y = st.start + (st.end - st.start) * (tl.labels[`s${i}`] / tl.duration());
+            window.scrollTo({ top: y, behavior: "smooth" });
+          });
+          btn.addEventListener("click", go);
+          return () => btn.removeEventListener("click", go);
+        });
+
+        // Призма слегка покачивается сама, чтобы была «живой» и между шагами
+        gsap.to(el.querySelector(".k3-prism-float"), { y: -10, rotationX: -4, duration: 2.6, ease: "sine.inOut", repeat: -1, yoyo: true });
+
+        // Заголовок и «печатающийся» запрос
         const split = SplitText.create(el.querySelector(".k3-h2-line"), { type: "words", mask: "words" });
-        const head = gsap.timeline({ scrollTrigger: { trigger: el.querySelector(".k3-h2"), start: "top 80%" } });
-        head
+        gsap
+          .timeline({ scrollTrigger: { trigger: el.querySelector(".k3-h2"), start: "top 80%" } })
           .from(split.words, { yPercent: 110, duration: 0.8, stagger: 0.06, ease: "power4.out" })
           .from(el.querySelector(".k3-h2 .k3-plate"), { scaleX: 0, duration: 0.6, ease: "power3.inOut" }, 0.25);
-
-        // Запрос «печатается» из случайных букв
         const promptText = el.querySelector<HTMLElement>(".k3-prompt-text")!;
         const phrase = promptText.textContent ?? "";
         promptText.textContent = "";
@@ -37,28 +153,11 @@ export function Route() {
           scrollTrigger: { trigger: promptText, start: "top 85%" },
         });
 
-        // Линия и точка привязаны к прокрутке
-        gsap.set(dot, { visibility: "visible" });
-        const line = gsap.timeline({
-          defaults: { ease: "none" },
-          scrollTrigger: { trigger: route, start: "top 60%", end: "bottom 60%", scrub: 0.6 },
-        });
-        line
-          .fromTo(el.querySelector(".k3-route-fill"), { scaleY: 0 }, { scaleY: 1 }, 0)
-          .fromTo(dot, { y: 0 }, { y: () => route.offsetHeight }, 0);
-
-        // Каждый шаг выезжает со своей стороны, когда точка к нему подходит
-        gsap.utils.toArray<HTMLElement>(".k3-station", el).forEach((station, i) => {
-          const fromX = wide ? (i % 2 ? 60 : -60) : 40;
-          gsap
-            .timeline({ scrollTrigger: { trigger: station, start: "top 62%", toggleActions: "play none none reverse" } })
-            .from(station.querySelector(".k3-station-node"), { scale: 0, duration: 0.4, ease: "back.out(3)" })
-            .from(station.querySelector(".k3-station-card"), { x: fromX, autoAlpha: 0, duration: 0.7, ease: "power3.out" }, 0);
-        });
-
         return () => {
+          offs.forEach((off) => off());
           split.revert();
           promptText.textContent = phrase; // при откате анимаций фраза не должна пропасть
+          el.classList.remove("is-live");
         };
       });
     },
@@ -66,46 +165,64 @@ export function Route() {
   );
 
   return (
-    <section className="k3-how k3-section" id="how" ref={root} aria-labelledby="how-title">
-      <div className="wrap">
-        <p className="k3-label">как работаем · 3 шага</p>
-        <h2 className="k3-h2" id="how-title">
-          <span className="k3-h2-line">От задачи</span> <span className="k3-plate">до результата.</span>
-        </h2>
-        <p className="k3-ask">
-          <span className="k3-ask-lead">Начать можно с одной фразы:</span>
-          <span className="k3-ask-prompt">
-            <span className="p" aria-hidden="true">
-              &gt;
-            </span>
-            <span className="k3-prompt-text">хотим понять, где нам нужен ИИ.</span>
-            <span className="k3-caret" aria-hidden="true" />
-          </span>
-        </p>
+    <section className="k3-how" id="how" ref={root} aria-labelledby="how-title">
+      <div className="k3-how-pin">
+        <div className="wrap k3-how-grid">
+          <div>
+            <p className="k3-label">как работаем · 3 шага</p>
+            <h2 className="k3-h2" id="how-title">
+              <span className="k3-h2-line">От задачи</span> <span className="k3-plate">до результата.</span>
+            </h2>
+            <p className="k3-ask">
+              <span className="k3-ask-lead">Начать можно с одной фразы:</span>
+              <span className="k3-ask-prompt">
+                <span className="p" aria-hidden="true">
+                  &gt;
+                </span>
+                <span className="k3-prompt-text">хотим понять, где нам нужен ИИ.</span>
+                <span className="k3-caret" aria-hidden="true" />
+              </span>
+            </p>
+            <ol className="k3-steps" aria-label="Шаги работы">
+              {steps.map((s) => (
+                <li key={s.number}>
+                  <button type="button" className="k3-step">
+                    <span className="n">{s.number}</span>
+                    <span className="t">{s.title}</span>
+                    <span className="d">{s.text}</span>
+                  </button>
+                </li>
+              ))}
+            </ol>
+            <p className="k3-note">
+              Не знаете, с чего начать? Начните с <code>AI-аудита</code>: разберём процессы и данные и найдём, где ИИ даст
+              наибольший эффект.
+            </p>
+          </div>
 
-        <div className="k3-route">
-          <span className="k3-route-line" aria-hidden="true">
-            <span className="k3-route-fill" />
-          </span>
-          <span className="k3-route-dot" aria-hidden="true" />
-          <ol className="k3-stations" aria-label="Шаги работы">
-          {steps.map((s) => (
-            <li className="k3-station" key={s.number}>
-              <span className="k3-station-node" aria-hidden="true" />
-              <div className="k3-station-card">
-                <span className="k3-station-num">{s.number}</span>
-                <h3 className="k3-station-title">{s.title}</h3>
-                <p className="k3-station-text">{s.text}</p>
+          <div className="k3-prism-stage" aria-hidden="true">
+            <div className="k3-prism-float">
+              <div className="k3-prism">
+                {steps.map((s, i) => {
+                  const Visual = visuals[i];
+                  return (
+                    <div className={`k3-face is-${i + 1}`} key={s.number} style={{ "--i": i } as React.CSSProperties}>
+                      <span className="k3-face-num">
+                        {s.number}
+                        <small>шаг {i + 1} из 3</small>
+                      </span>
+                      <span className="k3-face-title">{s.title}</span>
+                      <span className="k3-face-visual">
+                        <Visual />
+                      </span>
+                      <span className="k3-face-shade" />
+                    </div>
+                  );
+                })}
               </div>
-            </li>
-          ))}
-          </ol>
+            </div>
+          </div>
         </div>
-
-        <p className="k3-note">
-          Не знаете, с чего начать? Начните с <code>AI-аудита</code>: разберём процессы и данные и найдём, где ИИ даст
-          наибольший эффект.
-        </p>
       </div>
     </section>
   );

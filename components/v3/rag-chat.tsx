@@ -96,15 +96,22 @@ export function RagChat() {
     { scope: root, dependencies: [msgs] },
   );
 
-  // Панель источника выезжает, фрагмент подсвечивается маркером
+  // Панель источника проявляется поверх диалога, фрагмент подсвечивается маркером.
+  // Панель не выезжает из-за края окна: мобильный Safari при фокусе прокручивал окно чата
+  // вслед за кнопкой «×», и панель оказывалась за пределами видимой области.
   useGSAP(
     () => {
       if (src === null) return;
-      const panel = root.current!.querySelector<HTMLElement>(".k3-src")!;
-      panel.querySelector<HTMLButtonElement>(".k3-src-close")?.focus();
+      const chat = root.current!.querySelector<HTMLElement>(".k3-chat")!;
+      const panel = chat.querySelector<HTMLElement>(".k3-src")!;
+      chat.scrollLeft = 0;
+      panel.querySelector<HTMLButtonElement>(".k3-src-close")?.focus({ preventScroll: true });
+      // На телефоне окно чата может быть частично выше экрана — докручиваем, чтобы источник был виден
+      const r = chat.getBoundingClientRect();
+      if (r.top < 0 || r.bottom > window.innerHeight) chat.scrollIntoView({ block: "nearest", behavior: "smooth" });
       if (!window.matchMedia(MQ.motion).matches) return;
-      gsap.fromTo(panel, { xPercent: 100 }, { xPercent: 0, duration: 0.45, ease: "power3.out" });
-      gsap.fromTo(panel.querySelector("mark"), { backgroundSize: "0% 100%" }, { backgroundSize: "100% 100%", duration: 0.8, delay: 0.35, ease: "power2.inOut" });
+      gsap.fromTo(panel, { autoAlpha: 0, y: 24 }, { autoAlpha: 1, y: 0, duration: 0.4, ease: "power3.out" });
+      gsap.fromTo(panel.querySelector("mark"), { backgroundSize: "0% 100%" }, { backgroundSize: "100% 100%", duration: 0.8, delay: 0.3, ease: "power2.inOut" });
     },
     { scope: root, dependencies: [src] },
   );
@@ -128,9 +135,9 @@ export function RagChat() {
     const panel = root.current?.querySelector<HTMLElement>(".k3-src");
     const done = () => {
       setSrc(null);
-      lastChip.current?.focus();
+      lastChip.current?.focus({ preventScroll: true });
     };
-    if (panel && window.matchMedia(MQ.motion).matches) gsap.to(panel, { xPercent: 100, duration: 0.3, ease: "power2.in", onComplete: done });
+    if (panel && window.matchMedia(MQ.motion).matches) gsap.to(panel, { autoAlpha: 0, y: 16, duration: 0.25, ease: "power2.in", onComplete: done });
     else done();
   };
 
