@@ -631,11 +631,12 @@ body:has(.k3) { background: #f7f3ee; }
 
 /* ===== Финал на бордо ===== */
 .k3-outro { background: var(--mark); color: var(--on-ink); }
-.k3-outro.k3-section { padding-bottom: clamp(28px, 3vw, 40px); } /* под подвалом — небольшой отступ, а не как у секций */
+/* Финал целиком помещается в экран монитора: отступы меньше, чем у секций, под подвалом — небольшой */
+.k3-outro.k3-section { padding-top: clamp(72px, 7vw, 104px); padding-bottom: clamp(28px, 3vw, 40px); }
 .k3-outro ::selection { background: var(--on-ink); color: var(--mark); }
 .k3-outro .k3-label { color: var(--on-mark-muted); }
-.k3-outro-title { margin: 0; font-size: clamp(56px, 12vw, 184px); line-height: 0.92; letter-spacing: -0.05em; font-weight: 800; }
-.k3-outro-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 420px); gap: clamp(32px, 5vw, 72px); align-items: center; margin-top: clamp(40px, 5vw, 64px); }
+.k3-outro-title { margin: 0; font-size: clamp(56px, 11vw, 168px); line-height: 0.92; letter-spacing: -0.05em; font-weight: 800; }
+.k3-outro-grid { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 420px); gap: clamp(32px, 5vw, 72px); align-items: center; margin-top: clamp(32px, 3.5vw, 48px); }
 .k3-outro-meta { margin: 0; max-width: 30ch; font-size: clamp(19px, 1.7vw, 24px); line-height: 1.35; color: var(--on-mark-muted); }
 .k3-magnet-zone { display: grid; place-items: center; padding: 24px; }
 .k3-magnet {
@@ -663,7 +664,7 @@ body:has(.k3) { background: #f7f3ee; }
   flex-wrap: wrap;
   justify-content: space-between;
   gap: 8px 24px;
-  margin-top: clamp(56px, 7vw, 96px);
+  margin-top: clamp(40px, 4vw, 56px);
   padding-top: 20px;
   border-top: 1px solid rgb(247 242 239 / 0.25);
   font-family: var(--mono);

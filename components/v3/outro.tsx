@@ -11,12 +11,13 @@ export function Outro() {
 
   useGSAP(
     () => {
-      // За краем страницы (оттяжка в конце прокрутки, место под панелью браузера на телефоне) виден фон документа.
-      // Пока финал на экране, фон — цвета финала, иначе под бордовым подвалом светлая полоса.
+      // Полосы под часами и под панелью Safari на iPhone, а также оттяжка в конце прокрутки залиты фоном документа.
+      // Когда финал доходит до верха экрана (или страница докручена до конца, если финал ниже экрана),
+      // фон — цвета финала, иначе над и под бордовым блоком светлые полосы.
       const page = document.documentElement;
       ScrollTrigger.create({
         trigger: root.current,
-        start: "top bottom",
+        start: "clamp(top top)",
         onToggle: (self) => {
           page.style.backgroundColor = self.isActive ? getComputedStyle(root.current!).backgroundColor : "";
         },
