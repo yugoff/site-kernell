@@ -680,8 +680,16 @@ body:has(.k3) { background: #f7f3ee; }
 @media (max-width: 960px) {
   .k3-outro-grid { grid-template-columns: minmax(0, 1fr); }
   .k3-magnet-zone { justify-items: start; padding: 0; }
-  .k3-magnet { width: auto; height: auto; min-height: 56px; grid-auto-flow: column; padding: 0 26px; border-radius: 999px; }
+  /* тень мягче: крупная тень круглой кнопки на «пилюле» Safari рисует мутным пятном; магнита на касаниях нет */
+  .k3-magnet { width: auto; height: auto; min-height: 56px; grid-auto-flow: column; padding: 0 26px; border-radius: 999px; box-shadow: 0 14px 28px -16px rgb(0 0 0 / 0.45); will-change: auto; }
   .k3-magnet br { display: none; } /* на узком экране — кнопка в одну строку */
+  /* Телефон: в конце прокрутки низ финала упирается в панель Safari, верх уходит под часы. Блок компактнее,
+     а свободное место (если экран выше) — только над заголовком, чтобы «контакты» не резались под часами */
+  .k3-outro .k3-label { margin-bottom: 14px; }
+  .k3-outro-grid { row-gap: 24px; margin-top: 24px; margin-bottom: 28px; }
+  .k3-outro-meta { font-size: 18px; }
+  .k3-colophon { margin-top: 0; padding-top: 16px; }
+  .k3-outro.k3-section { padding-bottom: 24px; }
 }
 
 /* Контакты-плашки (как на /v2): плашка — ссылка, кнопка копирует */
