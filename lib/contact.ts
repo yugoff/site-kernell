@@ -1,4 +1,4 @@
-export const EMAIL = "vv.yugoff@gmail.com";
+export const EMAIL = "info@kernell.ru";
 export const TELEGRAM_HANDLE = "@timm_ai";
 export const TELEGRAM_URL = "https://t.me/timm_ai";
 
