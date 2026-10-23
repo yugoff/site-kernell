@@ -670,6 +670,7 @@ body:has(.k3) { background: #f7f3ee; }
   font-size: 13px;
   color: var(--on-mark-muted);
 }
+.k3-legal { flex-basis: 100%; opacity: 0.8; } /* реквизиты — отдельной строкой под копирайтом */
 @media (max-width: 960px) {
   .k3-outro-grid { grid-template-columns: minmax(0, 1fr); }
   .k3-magnet-zone { justify-items: start; padding: 0; }

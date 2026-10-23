@@ -3,7 +3,7 @@
 import { useRef } from "react";
 import { gsap, SplitText, useGSAP, MQ, safeHandler } from "./gsap";
 import { CopyButton } from "@/components/v2/copy-button";
-import { EMAIL, MAIL_DISCUSS, TELEGRAM_HANDLE, TELEGRAM_URL } from "@/lib/contact";
+import { EMAIL, LEGAL, MAIL_DISCUSS, TELEGRAM_HANDLE, TELEGRAM_URL } from "@/lib/contact";
 
 /** Финал: заголовок появляется по буквам, кнопка «магнитом» тянется к курсору. */
 export function Outro() {
@@ -92,6 +92,9 @@ export function Outro() {
         <div className="k3-colophon">
           <span>© {new Date().getFullYear()} Kernell. Все права защищены.</span>
           <span>Москва — Екатеринбург · работаем удалённо по всей России</span>
+          <span className="k3-legal">
+            {LEGAL.name} · ИНН&nbsp;{LEGAL.inn} · ОГРНИП&nbsp;{LEGAL.ogrnip}
+          </span>
         </div>
       </div>
     </section>
