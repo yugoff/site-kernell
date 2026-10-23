@@ -1,7 +1,7 @@
 "use client";
 
 import { useRef } from "react";
-import { gsap, SplitText, useGSAP, MQ, safeHandler } from "./gsap";
+import { gsap, ScrollTrigger, SplitText, useGSAP, MQ, safeHandler } from "./gsap";
 import { CopyButton } from "@/components/v2/copy-button";
 import { EMAIL, LEGAL, MAIL_DISCUSS, TELEGRAM_HANDLE, TELEGRAM_URL } from "@/lib/contact";
 
@@ -11,6 +11,17 @@ export function Outro() {
 
   useGSAP(
     () => {
+      // За краем страницы (оттяжка в конце прокрутки, место под панелью браузера на телефоне) виден фон документа.
+      // Пока финал на экране, фон — цвета финала, иначе под бордовым подвалом светлая полоса.
+      const page = document.documentElement;
+      ScrollTrigger.create({
+        trigger: root.current,
+        start: "top bottom",
+        onToggle: (self) => {
+          page.style.backgroundColor = self.isActive ? getComputedStyle(root.current!).backgroundColor : "";
+        },
+      });
+
       const mm = gsap.matchMedia();
 
       mm.add(MQ.motion, () => {
@@ -42,6 +53,8 @@ export function Outro() {
           zone.removeEventListener("pointerleave", onLeave);
         };
       });
+
+      return () => page.style.removeProperty("background-color");
     },
     { scope: root },
   );
