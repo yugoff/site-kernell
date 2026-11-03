@@ -6,8 +6,11 @@ import { Outro } from "@/components/v3/outro";
 import { Proof } from "@/components/v3/proof";
 import { RagChat } from "@/components/v3/rag-chat";
 import { Route } from "@/components/v3/route";
+import { TournamentApp } from "@/components/chess/tournament-app";
 
 export default function HomePage() {
+  if (process.env.KERNELL_CHESS === "1") return <TournamentApp />;
+
   return (
     <>
       <a className="skip-link" href="#main">

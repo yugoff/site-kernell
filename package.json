@@ -5,6 +5,8 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:chess": "KERNELL_CHESS=1 next build --webpack && node scripts/package-chess.mjs",
+    "test:chess": "node --experimental-strip-types tests/chess.test.mjs",
     "start": "npx serve out",
     "lint": "tsc --noEmit"
   },
