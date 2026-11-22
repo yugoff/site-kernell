@@ -11,7 +11,7 @@ export function Logo({ light = false }: { light?: boolean }) {
       className={`logo ${light ? "light" : ""}`}
       aria-label="Kernell Cloud — главная"
     >
-      kernell<sup>™</sup>
+      kernell<sup>TM</sup>
       <span>cloud</span>
     </Link>
   );
@@ -68,33 +68,21 @@ export function Header({ signedIn = false }: { signedIn?: boolean }) {
 }
 export function Footer() {
   return (
-    <footer className="site-footer" aria-labelledby="footer-title">
+    <footer className="site-footer">
       <div className="wrap footer-inner">
-        <p className="footer-label">ваш следующий проект</p>
-        <h2 className="footer-title" id="footer-title">
-          Давайте
-          <br />
-          запустим.
-        </h2>
-        <div className="footer-grid">
-          <p className="footer-description">
-            Домен для идеи. Сервер для запуска. Всё для вашего проекта — в одном
-            кабинете Kernell Cloud.
-          </p>
-          <div className="footer-action-zone">
-            <Link className="footer-action" href="/register">
-              создать <br /> аккаунт
-            </Link>
+        <div className="footer-main">
+          <div className="footer-brand">
+            <Logo />
+            <p>Домены и серверы для ваших проектов.</p>
           </div>
-          <div className="footer-contacts">
-            <span className="footer-contact-label">основной сайт</span>
-            <a className="footer-contact" href="https://kernell.ru">
-              <span aria-hidden="true">$</span> открыть kernell.ru
-            </a>
-            <span className="footer-contact-label">почта</span>
-            <a className="footer-contact" href="mailto:info@kernell.ru">
-              <span aria-hidden="true">$</span> написать info@kernell.ru
-            </a>
+          <nav className="footer-nav" aria-label="Навигация в подвале">
+            <Link href="/vps">VPS-серверы</Link>
+            <Link href="/domains">Домены</Link>
+            <a href="https://kernell.ru">Основной сайт</a>
+          </nav>
+          <div className="footer-support">
+            <span>Поможем разобраться</span>
+            <a href="mailto:info@kernell.ru">info@kernell.ru</a>
           </div>
         </div>
         <div className="footer-colophon">

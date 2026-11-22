@@ -275,27 +275,29 @@ hr {
   gap: 36px;
 }
 .logo {
-  display: inline-flex;
-  align-items: baseline;
+  display: inline-block;
   font-family: var(--mono);
-  font-size: 24px;
+  font-size: 16px;
   font-weight: 700;
-  letter-spacing: -1.3px;
+  line-height: 1.45;
+  letter-spacing: -0.02em;
+  padding-block: 10px;
   white-space: nowrap;
 }
 .logo sup {
   font-size: 9px;
-  align-self: flex-start;
-  margin-top: 4px;
+  font-weight: 500;
+  color: var(--muted);
+  margin-left: 2px;
   letter-spacing: 0;
 }
 .logo > span {
-  font-size: 16px;
+  font-size: 12px;
   font-weight: 400;
-  letter-spacing: -0.6px;
+  letter-spacing: -0.02em;
   color: var(--accent);
-  margin-left: 14px;
-  padding-left: 14px;
+  margin-left: 10px;
+  padding-left: 10px;
   border-left: 1px solid var(--rule);
 }
 .logo.light {
@@ -1317,10 +1319,10 @@ td {
   justify-content: space-between;
 }
 .sidebar .logo {
-  font-size: 22px;
+  font-size: 16px;
 }
 .sidebar .logo > span {
-  font-size: 13px;
+  font-size: 12px;
   margin-left: 10px;
   padding-left: 10px;
 }
@@ -2560,10 +2562,10 @@ td {
     padding-inline: 13px;
   }
   .logo {
-    font-size: 21px;
+    font-size: 16px;
   }
   .logo > span {
-    font-size: 14px;
+    font-size: 12px;
     margin-left: 10px;
     padding-left: 10px;
   }
@@ -3320,12 +3322,12 @@ td {
     padding-inline: 12px;
   }
   .logo {
-    font-size: 20px;
+    font-size: 16px;
   }
   .logo > span {
     font-size: 12px;
-    margin-left: 8px;
-    padding-left: 8px;
+    margin-left: 10px;
+    padding-left: 10px;
   }
 }
 .hero h1 {
