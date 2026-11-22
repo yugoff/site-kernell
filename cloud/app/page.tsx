@@ -207,19 +207,6 @@ export default async function Home() {
             </div>
           </div>
         </section>
-        <section className="closing-band">
-          <div className="wrap">
-            <p className="eyebrow">СЛЕДУЮЩИЙ ШАГ — ВАШ</p>
-            <h2>
-              Идеям нужно место.
-              <br />
-              Давайте его <em>найдём.</em>
-            </h2>
-            <Link href="/register" className="button button-light">
-              Создать аккаунт
-            </Link>
-          </div>
-        </section>
       </main>
       <Footer />
     </>

@@ -43,10 +43,16 @@ export function Header({ signedIn = false }: { signedIn?: boolean }) {
           <a href="mailto:info@kernell.ru">Поддержка</a>
         </nav>
         <Link
-          className="button button-small"
+          className="button button-small header-account"
           href={signedIn ? "/dashboard" : "/login"}
+          aria-label={signedIn ? "Личный кабинет" : "Войти в кабинет"}
         >
-          {signedIn ? "Личный кабинет" : "Войти в кабинет"}
+          <span className="header-account-full">
+            {signedIn ? "Личный кабинет" : "Войти в кабинет"}
+          </span>
+          <span className="header-account-short" aria-hidden="true">
+            Кабинет
+          </span>
         </Link>
         <button
           className="icon-button mobile-menu"
@@ -62,17 +68,40 @@ export function Header({ signedIn = false }: { signedIn?: boolean }) {
 }
 export function Footer() {
   return (
-    <footer className="footer wrap">
-      <div>
-        <Logo />
-        <p>Инфраструктура для ваших идей.</p>
+    <footer className="site-footer" aria-labelledby="footer-title">
+      <div className="wrap footer-inner">
+        <p className="footer-label">ваш следующий проект</p>
+        <h2 className="footer-title" id="footer-title">
+          Давайте
+          <br />
+          запустим.
+        </h2>
+        <div className="footer-grid">
+          <p className="footer-description">
+            Домен для идеи. Сервер для запуска. Всё для вашего проекта — в одном
+            кабинете Kernell Cloud.
+          </p>
+          <div className="footer-action-zone">
+            <Link className="footer-action" href="/register">
+              создать <br /> аккаунт
+            </Link>
+          </div>
+          <div className="footer-contacts">
+            <span className="footer-contact-label">основной сайт</span>
+            <a className="footer-contact" href="https://kernell.ru">
+              <span aria-hidden="true">$</span> открыть kernell.ru
+            </a>
+            <span className="footer-contact-label">почта</span>
+            <a className="footer-contact" href="mailto:info@kernell.ru">
+              <span aria-hidden="true">$</span> написать info@kernell.ru
+            </a>
+          </div>
+        </div>
+        <div className="footer-colophon">
+          <span>© {new Date().getFullYear()} Kernell. Все права защищены.</span>
+          <Link href="/privacy">Конфиденциальность</Link>
+        </div>
       </div>
-      <div>
-        <a href="https://kernell.ru">Основной сайт Kernell</a>
-        <Link href="/privacy">Конфиденциальность</Link>
-        <a href="mailto:info@kernell.ru">info@kernell.ru</a>
-      </div>
-      <span className="mono">© {new Date().getFullYear()} Kernell</span>
     </footer>
   );
 }

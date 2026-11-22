@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./fonts.css";
 import "./globals.css";
+import "./chrome.css";
 
 export const metadata: Metadata = {
   metadataBase: new URL("https://cloud.kernell.ru"),
