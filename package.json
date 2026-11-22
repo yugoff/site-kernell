@@ -5,6 +5,11 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "dev:cloud": "next dev cloud --port 3001",
+    "build:cloud": "next build cloud --webpack",
+    "start:cloud": "node scripts/start-cloud.mjs",
+    "check:cloud": "tsc --noEmit -p cloud/tsconfig.json",
+    "test:cloud": "node --test cloud/tests/integration.mjs",
     "start": "npx serve out",
     "lint": "tsc --noEmit"
   },

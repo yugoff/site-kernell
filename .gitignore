@@ -6,3 +6,6 @@ next-env.d.ts
 presentations/
 # /brag: рабочие файлы ролика (готовые копии лежат в public/v2/)
 brag-output/
+cloud/.data/
+cloud/.env*
+!cloud/.env.example

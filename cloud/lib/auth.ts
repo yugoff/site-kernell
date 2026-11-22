@@ -1,0 +1,173 @@
+import "server-only";
+import { cookies } from "next/headers";
+import {
+  createHash,
+  randomBytes,
+  scrypt as scryptCallback,
+  timingSafeEqual,
+} from "node:crypto";
+import { promisify } from "node:util";
+import { redirect } from "next/navigation";
+import { db } from "./database";
+import type { User } from "./catalog";
+
+const scrypt = promisify(scryptCallback);
+const cookieName = "kernell_cloud_session";
+const tokenHash = (token: string) =>
+  createHash("sha256").update(token).digest("hex");
+
+export async function hashPassword(password: string) {
+  const salt = randomBytes(16).toString("hex");
+  const key = (await scrypt(password, salt, 64)) as Buffer;
+  return `${salt}:${key.toString("hex")}`;
+}
+
+export async function passwordMatches(password: string, stored: string) {
+  const [salt, encoded] = stored.split(":");
+  if (!salt || !encoded) return false;
+  const expected = Buffer.from(encoded, "hex");
+  const actual = (await scrypt(password, salt, 64)) as Buffer;
+  return expected.length === actual.length && timingSafeEqual(expected, actual);
+}
+
+export function publicUser(row: {
+  id: string;
+  name: string;
+  email: string;
+  demo: number;
+}): User {
+  return {
+    id: row.id,
+    name: row.name,
+    email: row.demo ? "demo@example.invalid" : row.email,
+    demo: Boolean(row.demo),
+  };
+}
+
+export async function currentUser(): Promise<User | null> {
+  const token = (await cookies()).get(cookieName)?.value;
+  if (!token || token.length > 100) return null;
+  const row = db()
+    .prepare(
+      "SELECT u.id,u.name,u.email,u.demo FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?",
+    )
+    .get(tokenHash(token), Date.now()) as
+    { id: string; name: string; email: string; demo: number } | undefined;
+  return row ? publicUser(row) : null;
+}
+
+export async function requireUser() {
+  const user = await currentUser();
+  if (!user) redirect("/login");
+  return user;
+}
+
+export async function startSession(user: User) {
+  const token = randomBytes(32).toString("hex");
+  const lifetime = user.demo ? 86400 : 604800;
+  const jar = await cookies();
+  const previous = jar.get(cookieName)?.value;
+  if (previous)
+    db().prepare("DELETE FROM sessions WHERE token=?").run(tokenHash(previous));
+  db().prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
+  db()
+    .prepare("INSERT INTO sessions (token,user_id,expires) VALUES (?,?,?)")
+    .run(tokenHash(token), user.id, Date.now() + lifetime * 1000);
+  jar.set(cookieName, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure:
+      process.env.CLOUD_ORIGIN?.startsWith("https://") ??
+      process.env.NODE_ENV === "production",
+    path: "/",
+    maxAge: lifetime,
+  });
+}
+
+export async function endSession() {
+  const jar = await cookies();
+  const token = jar.get(cookieName)?.value;
+  if (token)
+    db().prepare("DELETE FROM sessions WHERE token=?").run(tokenHash(token));
+  jar.delete(cookieName);
+}
+
+export class ApiError extends Error {
+  constructor(
+    public status: number,
+    message: string,
+  ) {
+    super(message);
+  }
+}
+
+export function checkOrigin(request: Request) {
+  const expected = process.env.CLOUD_ORIGIN || new URL(request.url).origin;
+  if (request.headers.get("origin") !== expected)
+    throw new ApiError(403, "Обновите страницу и повторите действие.");
+}
+
+export async function jsonBody(
+  request: Request,
+): Promise<Record<string, unknown>> {
+  if (!request.headers.get("content-type")?.includes("application/json"))
+    throw new ApiError(415, "Ожидается JSON.");
+  const reader = request.body?.getReader();
+  if (!reader) throw new ApiError(400, "Пустой запрос.");
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  for (;;) {
+    const { done, value } = await reader.read();
+    if (done) break;
+    size += value.length;
+    if (size > 16384) {
+      await reader.cancel();
+      throw new ApiError(413, "Слишком большой запрос.");
+    }
+    chunks.push(value);
+  }
+  try {
+    const data: unknown = JSON.parse(Buffer.concat(chunks).toString());
+    if (!data || typeof data !== "object" || Array.isArray(data))
+      throw new Error();
+    return data as Record<string, unknown>;
+  } catch {
+    throw new ApiError(400, "Некорректный запрос.");
+  }
+}
+
+// Persisted across restarts. Global and account-scoped buckets don't trust proxy IP headers.
+export function rateLimit(key: string, maximum: number, windowMs = 900000) {
+  const sql = db();
+  const now = Date.now();
+  sql.prepare("DELETE FROM rate_limits WHERE resets<?").run(now);
+  const row = sql
+    .prepare(
+      "INSERT INTO rate_limits (key,count,resets) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count",
+    )
+    .get(key, now + windowMs) as { count: number };
+  if (row.count > maximum)
+    throw new ApiError(
+      429,
+      "Слишком много попыток. Попробуйте через 15 минут.",
+    );
+}
+
+export async function apiUser() {
+  const user = await currentUser();
+  if (!user) throw new ApiError(401, "Войдите в личный кабинет.");
+  return user;
+}
+
+export function apiError(error: unknown) {
+  if (error instanceof ApiError)
+    return Response.json({ error: error.message }, { status: error.status });
+  console.error(
+    "Cloud API operation failed",
+    error instanceof Error ? error.name : "UnknownError",
+  );
+  return Response.json(
+    { error: "Не удалось выполнить действие. Попробуйте ещё раз." },
+    { status: 500 },
+  );
+}
