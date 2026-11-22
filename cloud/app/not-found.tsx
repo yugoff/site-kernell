@@ -5,7 +5,7 @@ export default function NotFound() {
     <>
       <Header />
       <main id="main" className="wrap not-found">
-        <p className="eyebrow">404 / СТРАНИЦА НЕ НАЙДЕНА</p>
+        <p className="eyebrow">404 · страница не найдена</p>
         <h1>
           Кажется, здесь
           <br />

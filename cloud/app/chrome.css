@@ -1,4 +1,32 @@
 /* Shared brand dimensions from kernell.ru; Cloud keeps its own composition. */
+/* Main-site primary actions use the same pill shape and type scale. */
+.hero-actions .button,
+.workspace-grid .demo-entry > .button,
+.cloud-invitation .button {
+  min-height: 54px;
+  padding: 0 24px;
+  border-radius: 999px;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.hero-actions .button-accent,
+.workspace-grid .demo-entry > .button {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.hero-actions .button-accent:hover,
+.workspace-grid .demo-entry > .button:hover {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.hero-actions .button-outline {
+  border-color: var(--ink);
+}
+
 .site-header {
   height: auto;
   position: sticky;

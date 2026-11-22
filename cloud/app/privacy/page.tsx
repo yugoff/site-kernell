@@ -4,7 +4,7 @@ export default function Privacy() {
     <>
       <Header />
       <main id="main" className="wrap legal-page">
-        <p className="eyebrow">KERNELL CLOUD / ПРЕДВАРИТЕЛЬНЫЙ ПРОСМОТР</p>
+        <p className="eyebrow">kernell cloud · предварительный просмотр</p>
         <h1>Ваши данные.</h1>
         <p>
           Эта версия предназначена для знакомства с будущим сервисом. Не

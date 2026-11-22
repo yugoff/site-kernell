@@ -25,9 +25,7 @@ export default async function Home() {
       <main id="main">
         <section className="hero wrap">
           <div className="hero-copy">
-            <p className="eyebrow">
-              <span className="tiny-square" /> KERNELL / CLOUD
-            </p>
+            <p className="eyebrow eyebrow-hero">kernell · домены и VPS</p>
             <h1>
               Ваш проект.
               <br />
@@ -117,7 +115,7 @@ export default async function Home() {
         <section className="section wrap">
           <div className="section-heading">
             <div>
-              <p className="eyebrow">НАЧНИТЕ С ИМЕНИ</p>
+              <p className="eyebrow">начните с имени</p>
               <h2>
                 У каждой идеи
                 <br />
@@ -136,7 +134,7 @@ export default async function Home() {
           <div className="wrap">
             <div className="section-heading">
               <div>
-                <p className="eyebrow">ВЫЧИСЛИТЕЛЬНАЯ МОЩНОСТЬ</p>
+                <p className="eyebrow">вычислительная мощность</p>
                 <h2>
                   Ресурсы под
                   <br />
@@ -157,7 +155,7 @@ export default async function Home() {
         <section className="section wrap">
           <div className="workspace-grid">
             <div>
-              <p className="eyebrow">ВСЁ ПОД РУКОЙ</p>
+              <p className="eyebrow">всё под рукой</p>
               <h2>
                 Меньше вкладок.
                 <br />
@@ -209,7 +207,7 @@ export default async function Home() {
         </section>
         <section className="cloud-invitation">
           <div className="wrap">
-            <p className="eyebrow">СЛЕДУЮЩИЙ ШАГ — ВАШ</p>
+            <p className="eyebrow">следующий шаг — ваш</p>
             <h2>
               Идеям нужно место.
               <br />

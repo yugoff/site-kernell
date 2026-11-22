@@ -240,18 +240,31 @@ hr {
   color: var(--green);
 }
 .eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 10px;
   font-family: var(--mono);
-  font-size: 12px;
-  letter-spacing: 0.07em;
+  font-size: 14px;
+  line-height: 1.45;
+  letter-spacing: normal;
   color: var(--accent);
-  margin-bottom: 24px;
+  margin: 0 0 18px;
 }
-.tiny-square {
-  display: inline-block;
-  width: 7px;
-  height: 7px;
+.eyebrow::before {
+  content: "";
+  flex-shrink: 0;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.eyebrow-hero {
+  display: flex;
+  color: var(--muted);
+  margin-bottom: 22px;
+}
+.eyebrow-hero::before {
   background: var(--accent);
-  margin-right: 10px;
 }
 .spin {
   animation: spin 0.9s linear infinite;
@@ -600,7 +613,7 @@ hr {
   font-size: 16px;
 }
 .section-heading .eyebrow {
-  margin-bottom: 20px;
+  margin-bottom: 18px;
 }
 .domain-search-form {
   display: flex;
@@ -1512,7 +1525,7 @@ td {
 }
 .dashboard-title .eyebrow {
   font-size: 9px;
-  letter-spacing: 0.07em;
+  letter-spacing: normal;
   margin-bottom: 12px;
   color: #9a797f;
 }
@@ -2753,8 +2766,7 @@ td {
     display: none;
   }
   .section-heading .eyebrow {
-    font-size: 10px;
-    margin-bottom: 17px;
+    margin-bottom: 18px;
   }
   .preview-notice {
     align-items: flex-start;

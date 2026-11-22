@@ -427,8 +427,8 @@ export function Dashboard({
             <div>
               <p className="eyebrow">
                 {section === "overview"
-                  ? "ОБЛАКО, В КОТОРОМ ВСЁ НА МЕСТЕ"
-                  : "ЛИЧНЫЙ КАБИНЕТ"}
+                  ? "облако, в котором всё на месте"
+                  : "личный кабинет"}
               </p>
               <h1>
                 {section === "overview" ? (
@@ -550,7 +550,7 @@ export function Dashboard({
                   <span className="quick-icon">
                     <Terminal size={25} />
                   </span>
-                  <p className="eyebrow">ОТ ИДЕИ К ЗАПУСКУ</p>
+                  <p className="eyebrow">от идеи к запуску</p>
                   <h2>
                     Следующий
                     <br />

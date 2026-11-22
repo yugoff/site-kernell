@@ -10,7 +10,7 @@ export default async function DomainsPage() {
       <Header signedIn={Boolean(await currentUser())} />
       <main id="main" className="wrap catalog-page">
         <div className="page-intro">
-          <p className="eyebrow">KERNELL CLOUD / ДОМЕНЫ</p>
+          <p className="eyebrow eyebrow-hero">kernell cloud · домены</p>
           <h1>
             Хорошие идеи
             <br />

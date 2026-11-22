@@ -10,7 +10,7 @@ export default async function VpsPage() {
       <Header signedIn={Boolean(await currentUser())} />
       <main id="main" className="wrap catalog-page">
         <div className="page-intro">
-          <p className="eyebrow">KERNELL CLOUD / VPS</p>
+          <p className="eyebrow eyebrow-hero">kernell cloud · VPS-серверы</p>
           <h1>
             Сервер под
             <br />

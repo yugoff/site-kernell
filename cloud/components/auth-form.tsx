@@ -40,7 +40,7 @@ export function AuthForm({
       <aside className="auth-aside">
         <Logo light />
         <div>
-          <p className="eyebrow">ВАШЕ РАБОЧЕЕ ПРОСТРАНСТВО</p>
+          <p className="eyebrow">ваше рабочее пространство</p>
           <h2>
             Идея.
             <br />
@@ -54,7 +54,7 @@ export function AuthForm({
             Один кабинет. Ваши правила.
           </p>
         </div>
-        <span className="mono">KERNELL / CLOUD</span>
+        <span className="mono">kernell cloud</span>
         <div className="auth-orbit" aria-hidden="true" />
       </aside>
       <main id="main" className="auth-main">
