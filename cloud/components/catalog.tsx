@@ -43,14 +43,14 @@ export function PlanCards({ onSelect }: { onSelect?: (id: string) => void }) {
               className={`button ${"popular" in plan ? "button-accent" : "button-outline"}`}
               onClick={() => onSelect(plan.id)}
             >
-              Выбрать сервер
+              выбрать сервер
             </button>
           ) : (
             <Link
               className={`button ${"popular" in plan ? "button-accent" : "button-outline"}`}
               href={`/register?plan=${plan.id}`}
             >
-              Выбрать сервер
+              выбрать сервер
             </Link>
           )}
         </article>
@@ -143,7 +143,7 @@ export function DomainSearch({
           required
         />
         <button className="button button-accent" type="submit">
-          Подобрать домен
+          подобрать домен
         </button>
       </form>
       {error && (
@@ -182,14 +182,14 @@ export function DomainSearch({
                   className="button button-small button-outline"
                   onClick={() => onSelect(`${label}.${item.zone}`)}
                 >
-                  Выбрать
+                  выбрать
                 </button>
               ) : (
                 <Link
                   className="button button-small button-outline"
                   href="/register?next=/dashboard/domains"
                 >
-                  Выбрать
+                  выбрать
                 </Link>
               )}
             </div>

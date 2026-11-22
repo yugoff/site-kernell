@@ -32,26 +32,26 @@ export function Header({ signedIn = false }: { signedIn?: boolean }) {
             href="/vps"
             aria-current={pathname === "/vps" ? "page" : undefined}
           >
-            VPS-серверы
+            vps-серверы
           </Link>
           <Link
             href="/domains"
             aria-current={pathname === "/domains" ? "page" : undefined}
           >
-            Домены
+            домены
           </Link>
-          <a href="mailto:info@kernell.ru">Поддержка</a>
+          <a href="mailto:info@kernell.ru">поддержка</a>
         </nav>
         <Link
           className="button button-small header-account"
           href={signedIn ? "/dashboard" : "/login"}
-          aria-label={signedIn ? "Личный кабинет" : "Войти в кабинет"}
+          aria-label={signedIn ? "личный кабинет" : "войти в кабинет"}
         >
           <span className="header-account-full">
-            {signedIn ? "Личный кабинет" : "Войти в кабинет"}
+            {signedIn ? "личный кабинет" : "войти в кабинет"}
           </span>
           <span className="header-account-short" aria-hidden="true">
-            Кабинет
+            кабинет
           </span>
         </Link>
         <button
@@ -76,18 +76,18 @@ export function Footer() {
             <p>Домены и серверы для ваших проектов.</p>
           </div>
           <nav className="footer-nav" aria-label="Навигация в подвале">
-            <Link href="/vps">VPS-серверы</Link>
-            <Link href="/domains">Домены</Link>
-            <a href="https://kernell.ru">Основной сайт</a>
+            <Link href="/vps">vps-серверы</Link>
+            <Link href="/domains">домены</Link>
+            <a href="https://kernell.ru">основной сайт</a>
           </nav>
           <div className="footer-support">
-            <span>Поможем разобраться</span>
+            <span>поможем разобраться</span>
             <a href="mailto:info@kernell.ru">info@kernell.ru</a>
           </div>
         </div>
         <div className="footer-colophon">
           <span>© {new Date().getFullYear()} Kernell. Все права защищены.</span>
-          <Link href="/privacy">Конфиденциальность</Link>
+          <Link href="/privacy">конфиденциальность</Link>
         </div>
       </div>
     </footer>
@@ -107,7 +107,7 @@ export async function api(path: string, body?: unknown) {
 }
 export function DemoButton({
   className = "button button-outline",
-  children = "Посмотреть кабинет",
+  children = "посмотреть кабинет",
 }: {
   className?: string;
   children?: ReactNode;
@@ -199,7 +199,7 @@ export function Modal({
 export function PreviewNotice() {
   return (
     <div className="preview-notice">
-      <span className="tag">Ранний доступ</span>
+      <span className="tag">ранний доступ</span>
       <span>
         Знакомимся с Cloud. Тарифы предварительные, оплата пока недоступна.
       </span>

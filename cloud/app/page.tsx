@@ -38,7 +38,7 @@ export default async function Home() {
             </p>
             <div className="hero-actions">
               <Link href="/vps" className="button button-accent">
-                Выбрать сервер
+                выбрать сервер
               </Link>
               <DemoButton />
             </div>
@@ -142,7 +142,7 @@ export default async function Home() {
                 </h2>
               </div>
               <Link className="text-link" href="/vps">
-                Подробнее о серверах
+                подробнее о серверах
               </Link>
             </div>
             <PlanCards />
@@ -166,7 +166,7 @@ export default async function Home() {
                 Посмотрите, как будет устроена работа с вашей инфраструктурой.
               </p>
               <DemoButton className="button button-accent">
-                Открыть демокабинет
+                открыть демокабинет
               </DemoButton>
             </div>
             <div className="workspace-preview">
@@ -214,7 +214,7 @@ export default async function Home() {
               Давайте его <em>найдём.</em>
             </h2>
             <Link href="/register" className="button button-light">
-              Создать аккаунт
+              создать аккаунт
             </Link>
           </div>
         </section>

@@ -302,7 +302,12 @@ hr {
   font-weight: 500;
   color: var(--muted);
   margin-left: 2px;
-  letter-spacing: 0;
+  /* Match the main site's Tailwind preflight and inherited logo tracking. */
+  position: relative;
+  top: -0.5em;
+  line-height: 0;
+  vertical-align: baseline;
+  letter-spacing: inherit;
 }
 .logo > span {
   font-size: 12px;

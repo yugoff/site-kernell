@@ -59,7 +59,7 @@ export function AuthForm({
       </aside>
       <main id="main" className="auth-main">
         <Link href="/" className="auth-back">
-          На главную
+          на главную
         </Link>
         <div className="auth-card">
           <span className="auth-icon">
@@ -139,7 +139,7 @@ export function AuthForm({
               type="submit"
             >
               {busy && <LoaderCircle size={18} className="spin" />}
-              {register ? "Создать аккаунт" : "Войти"}
+              {register ? "создать аккаунт" : "войти"}
             </button>
           </form>
           <p className="auth-switch">
@@ -147,14 +147,14 @@ export function AuthForm({
             <Link
               href={`${register ? "/login" : "/register"}?next=${encodeURIComponent(next)}`}
             >
-              {register ? "Войти" : "Зарегистрироваться"}
+              {register ? "войти" : "зарегистрироваться"}
             </Link>
           </p>
           <div className="auth-divider">
             <span>Сначала познакомиться</span>
           </div>
           <DemoButton className="button button-outline full">
-            Открыть демокабинет
+            открыть демокабинет
           </DemoButton>
           <p className="auth-note">Без карты и настоящих покупок.</p>
         </div>
