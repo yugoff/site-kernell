@@ -5,11 +5,11 @@ import { gsap, ScrollTrigger, useGSAP, MQ } from "./gsap";
 import { MAIL_DISCUSS } from "@/lib/contact";
 
 const nav = [
-  { name: "в деле", href: "#demo" },
-  { name: "ассистент", href: "#assistant" },
+  { name: "почему мы", href: "#why" },
   { name: "как работаем", href: "#how" },
   { name: "кейсы", href: "#cases" },
-  { name: "почему мы", href: "#why" },
+  { name: "в деле", href: "#demo" },
+  { name: "ассистент", href: "#assistant" },
 ];
 
 /** Шапка (прячется при прокрутке вниз) и полоса прогресса прокрутки. */

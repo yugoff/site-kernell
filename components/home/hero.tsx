@@ -155,7 +155,7 @@ export function Hero() {
               проверить гипотезу
               <Arrow />
             </a>
-            <a className="k3-btn is-ghost" href="#demo">
+            <a className="k3-btn is-ghost" href="#how">
               как это работает ↓
             </a>
           </div>

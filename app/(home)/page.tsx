@@ -16,11 +16,11 @@ export default function HomePage() {
       <Chrome />
       <main id="main">
         <Hero />
-        <DocCheck />
-        <RagChat />
+        <Proof />
         <Route />
         <Cases />
-        <Proof />
+        <DocCheck />
+        <RagChat />
         <Outro />
       </main>
     </>
