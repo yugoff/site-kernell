@@ -126,9 +126,12 @@ export function TournamentApp() {
 
   return <div className="chess-app">
     <a href="#ch-main" className="skip-link">к турниру</a>
-    <header className="ch-header">
-      <div className="ch-wrap ch-header-inner">
-        <a className="ch-logo" href="https://kernell.ru">kernell<sup>TM</sup><span>/ chess</span></a>
+    <header className="k3-header ch-header">
+      <div className="wrap ch-wrap ch-header-inner">
+        <div className="ch-brand">
+          <a className="k3-logo ch-logo" href="https://kernell.ru">kernell<sup>TM</sup></a>
+          <span className="ch-product">/ chess</span>
+        </div>
         <div className="ch-save" role="status">
           <i className={saveState === "error" ? "is-error" : ""} />
           {saveState === "loading" ? "Загрузка…" : saveState === "error" ? "Не сохранено" : "Сохранение в браузере"}
@@ -144,18 +147,18 @@ export function TournamentApp() {
       {!active ? <>
         <section className="ch-intro">
           <div>
-            <p className="ch-eyebrow"><i /> ШАХМАТЫ. В ХОРОШЕЙ КОМПАНИИ.</p>
-            <h1>Ваш турнир.<br /><span>Ваш ход.</span></h1>
-            <p className="ch-intro-copy">Соберите игроков — мы подберём пары.<br />Вам остаётся играть и отмечать результаты.</p>
-            <div className="ch-intro-meta"><span>Без регистрации</span><span>Всё в одной вкладке</span></div>
+            <p className="k3-eyebrow ch-eyebrow"><i /> ШАХМАТЫ. В ХОРОШЕЙ КОМПАНИИ.</p>
+            <h1 className="k3-h1">Ваш турнир.<br /><span>Ваш ход.</span></h1>
+            <p className="k3-sub ch-intro-copy">Соберите игроков — мы подберём пары.<br />Вам остаётся играть и отмечать результаты.</p>
+            <div className="k3-industries ch-intro-meta"><span>Без регистрации</span><span>Всё в одной вкладке</span></div>
           </div>
           <BoardArt />
         </section>
         <section className="ch-setup" aria-labelledby="setup-heading">
           <div className="ch-setup-description">
             <span className="ch-section-number">01 / НАЧАЛО ПАРТИИ</span>
-            <h2 id="setup-heading">Кто за доской?</h2>
-            <p>Введите или вставьте список участников. Каждое имя — с новой строки.</p>
+            <h2 id="setup-heading" className="k3-h2">Кто за доской?</h2>
+            <p className="k3-why-text">Введите или вставьте список участников. Каждое имя — с новой строки.</p>
             <div className="ch-points"><span><b>1</b> победа</span><span><b>½</b> ничья</span><span><b>0</b> поражение</span></div>
             <div className="ch-setup-note"><Shuffle size={20} /><p>Первый тур — случайные пары.<br />Дальше — по результату предыдущего тура.</p></div>
           </div>
@@ -171,14 +174,14 @@ export function TournamentApp() {
         </section>
       </> : <>
         <section className="ch-tournament-title">
-          <div><p className="ch-eyebrow"><i /> ИГРА ПРОДОЛЖАЕТСЯ</p><h1>За доской.</h1></div>
+          <div><p className="k3-eyebrow ch-eyebrow"><i /> ИГРА ПРОДОЛЖАЕТСЯ</p><h1 className="k3-h2">За доской.</h1></div>
           <div className="ch-tournament-stats"><div><b>{tournament.players.length}</b><span>игроков</span></div><div><b>{tournament.rounds.length}</b><span>туров</span></div><div><b>{totalGames}</b><span>партий сыграно</span></div></div>
         </section>
         <div className="ch-dashboard">
           <section className="ch-round-section" aria-labelledby="round-heading">
             <div className="ch-round-top"><span className="ch-section-number">01 / ПАРТИИ</span><button type="button" className="ch-text-button" onClick={() => setConfirmation("undo")}><RotateCcw size={14} /> Отменить последний тур</button></div>
             <nav className="ch-round-tabs" aria-label="История туров">{tournament.rounds.map((r, i) => <button key={i} type="button" aria-pressed={roundIndex === i} onClick={() => setSelectedRound(i)} className={roundIndex === i ? "is-active" : ""}>Тур {i + 1}{isComplete(r) && <Check size={12} />}</button>)}</nav>
-            <div className="ch-round-heading"><h2 ref={roundHeading} tabIndex={-1} id="round-heading">Тур {roundIndex + 1}<span>{editable ? "Текущий" : "Завершён"}</span></h2><p>{editable ? "Отметьте результат каждой партии." : "Результаты сохранены. Для исправления отмените последующие туры."}</p></div>
+            <div className="ch-round-heading"><h2 className="k3-why-title" ref={roundHeading} tabIndex={-1} id="round-heading">Тур {roundIndex + 1}<span>{editable ? "Текущий" : "Завершён"}</span></h2><p>{editable ? "Отметьте результат каждой партии." : "Результаты сохранены. Для исправления отмените последующие туры."}</p></div>
             <div className="ch-match-list">{round.matches.map((match, index) => {
               const cross = lastOutcomes && lastOutcomes.get(match.white) !== lastOutcomes.get(match.black);
               return <article className={`ch-match ${match.result ? "is-complete" : ""}`} key={`${roundIndex}-${index}`} aria-labelledby={`match-${index}`}>
@@ -192,17 +195,17 @@ export function TournamentApp() {
               : <button className="ch-button ch-return" type="button" onClick={() => setSelectedRound(tournament.rounds.length - 1)}>К текущему туру <ChevronRight size={17} /></button>}
           </section>
 
-          <aside className="ch-standings" aria-labelledby="standings-heading"><div className="ch-standings-head"><span className="ch-section-number">02 / РЕЗУЛЬТАТЫ</span><Trophy size={20} /><h2 id="standings-heading">Таблица очков</h2><p>Все введённые результаты, включая текущий тур.</p></div><div className="ch-table-scroll"><table><caption className="sr-only">Места и суммарные очки игроков. При равенстве очков место общее.</caption><thead><tr><th scope="col">#</th><th scope="col">Игрок</th><th scope="col"><abbr title="Победы / ничьи / поражения">В/Н/П</abbr></th><th scope="col">Очки</th></tr></thead><tbody>{rows.map((row, i) => { const rank = rows.findIndex((other) => other.points === row.points) + 1; return <tr key={row.id} className={rank === 1 && row.points > 0 ? "is-leader" : ""}><td>{rank < 10 ? `0${rank}` : rank}</td><th scope="row">{row.name}{row.byes > 0 && <small title="Пропуски включены в очки">пропусков: {row.byes}</small>}</th><td>{row.wins}/{row.draws}/{row.losses}</td><td>{formatPoints(row.points)}</td></tr>; })}</tbody></table></div><div className="ch-standings-note"><span>1 — победа · ½ — ничья · 0 — поражение</span><p>Очки определяют места в таблице.<br />Пары — только исход последнего тура.</p></div></aside>
+          <aside className="ch-standings" aria-labelledby="standings-heading"><div className="ch-standings-head"><span className="ch-section-number">02 / РЕЗУЛЬТАТЫ</span><Trophy size={20} /><h2 id="standings-heading" className="k3-why-title">Таблица очков</h2><p>Все введённые результаты, включая текущий тур.</p></div><div className="ch-table-scroll"><table><caption className="sr-only">Места и суммарные очки игроков. При равенстве очков место общее.</caption><thead><tr><th scope="col">#</th><th scope="col">Игрок</th><th scope="col"><abbr title="Победы / ничьи / поражения">В/Н/П</abbr></th><th scope="col">Очки</th></tr></thead><tbody>{rows.map((row, i) => { const rank = rows.findIndex((other) => other.points === row.points) + 1; return <tr key={row.id} className={rank === 1 && row.points > 0 ? "is-leader" : ""}><td>{rank < 10 ? `0${rank}` : rank}</td><th scope="row">{row.name}{row.byes > 0 && <small title="Пропуски включены в очки">пропусков: {row.byes}</small>}</th><td>{row.wins}/{row.draws}/{row.losses}</td><td>{formatPoints(row.points)}</td></tr>; })}</tbody></table></div><div className="ch-standings-note"><span>1 — победа · ½ — ничья · 0 — поражение</span><p>Очки определяют места в таблице.<br />Пары — только исход последнего тура.</p></div></aside>
         </div>
       </>}
 
       <Rules />
       {active && <div className="ch-reset-row"><p>Новая компания, новая игра.</p><button type="button" className="ch-text-button" onClick={() => setConfirmation("reset")}><RotateCcw size={14} /> Сбросить турнир</button></div>}
     </main>
-    <footer className="ch-footer ch-wrap"><a href="https://kernell.ru">kernell<sup>TM</sup></a><span>Для тех, кто любит думать на ход вперёд.</span><span>chess / 01</span></footer>
+    <footer className="ch-footer ch-wrap"><a className="k3-logo" href="https://kernell.ru">kernell<sup>TM</sup></a><span>Для тех, кто любит думать на ход вперёд.</span><span>chess / 01</span></footer>
 
     <dialog ref={dialog} className="ch-dialog" onCancel={() => setConfirmation(null)} onClick={(e) => { if (e.target === dialog.current) setConfirmation(null); }} aria-labelledby="confirm-title" aria-describedby="confirm-description">
-      <div className="ch-dialog-inner"><button className="ch-dialog-close" type="button" aria-label="Закрыть" onClick={() => setConfirmation(null)}><X size={20} /></button><span className="ch-section-number">{confirmation === "reset" ? "НОВАЯ ИГРА" : "ШАГ НАЗАД"}</span><h2 id="confirm-title">{confirmation === "reset" ? "Сбросить турнир?" : `Отменить тур ${tournament.rounds.length}?`}</h2><p id="confirm-description">{confirmation === "reset" ? "Список игроков, все туры и результаты будут удалены из этого браузера." : tournament.rounds.length > 1 ? `Пары и результаты тура ${tournament.rounds.length} будут удалены. Тур ${tournament.rounds.length - 1} снова станет доступен для исправлений. Его результаты сохранятся.` : "Пары и результаты первого тура будут удалены. Вы вернётесь к списку участников и сможете провести жеребьёвку заново."}</p><div className="ch-dialog-actions"><button type="button" className="ch-button ch-secondary" autoFocus onClick={() => setConfirmation(null)}>Продолжить турнир</button><button type="button" className="ch-button ch-primary" onClick={confirmAction}>{confirmation === "reset" ? "Сбросить" : "Отменить тур"}</button></div></div>
+      <div className="ch-dialog-inner"><button className="ch-dialog-close" type="button" aria-label="Закрыть" onClick={() => setConfirmation(null)}><X size={20} /></button><span className="ch-section-number">{confirmation === "reset" ? "НОВАЯ ИГРА" : "ШАГ НАЗАД"}</span><h2 id="confirm-title" className="k3-why-title">{confirmation === "reset" ? "Сбросить турнир?" : `Отменить тур ${tournament.rounds.length}?`}</h2><p id="confirm-description">{confirmation === "reset" ? "Список игроков, все туры и результаты будут удалены из этого браузера." : tournament.rounds.length > 1 ? `Пары и результаты тура ${tournament.rounds.length} будут удалены. Тур ${tournament.rounds.length - 1} снова станет доступен для исправлений. Его результаты сохранятся.` : "Пары и результаты первого тура будут удалены. Вы вернётесь к списку участников и сможете провести жеребьёвку заново."}</p><div className="ch-dialog-actions"><button type="button" className="ch-button ch-secondary" autoFocus onClick={() => setConfirmation(null)}>Продолжить турнир</button><button type="button" className="ch-button ch-primary" onClick={confirmAction}>{confirmation === "reset" ? "Сбросить" : "Отменить тур"}</button></div></div>
     </dialog>
   </div>;
 }
