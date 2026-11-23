@@ -32,7 +32,7 @@ export function Proof() {
   );
 
   return (
-    <section className="k3-section" id="why" ref={root} aria-labelledby="why-title">
+    <section className="k3-proof k3-section k3-dark" id="why" ref={root} aria-labelledby="why-title">
       <div className="wrap">
         <p className="k3-label">почему мы</p>
         <h2 className="k3-h2" id="why-title">

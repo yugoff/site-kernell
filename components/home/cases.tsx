@@ -66,7 +66,7 @@ export function Cases() {
   );
 
   return (
-    <section className="k3-cases k3-dark" id="cases" ref={root} aria-labelledby="cases-title">
+    <section className="k3-cases" id="cases" ref={root} aria-labelledby="cases-title">
       <div className="k3-cases-pin k3-section">
         <div className="wrap">
           <div className="k3-cases-head">

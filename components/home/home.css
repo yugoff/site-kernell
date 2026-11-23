@@ -543,8 +543,9 @@ body:has(.k3) { background: #f7f3ee; }
 }
 
 /* ===== Кейсы ===== */
+.k3-cases { background: var(--bg); }
 .k3-cases-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 20px 40px; margin-bottom: clamp(32px, 4vw, 56px); }
-.k3-cases-hint { font-family: var(--mono); font-size: 13px; color: var(--on-ink-muted); display: none; }
+.k3-cases-hint { font-family: var(--mono); font-size: 13px; color: var(--muted); display: none; }
 .k3-track { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 22px; }
 .k3-card { display: grid; grid-template-rows: auto auto 1fr auto; gap: 12px; align-content: start; }
 .k3-card-media {
@@ -557,6 +558,7 @@ body:has(.k3) { background: #f7f3ee; }
   padding: 16px 18px;
   border-radius: var(--radius-md);
   background: var(--ink-2);
+  color: var(--on-ink);
   border: 1px solid var(--ink-3);
   transition: border-color 240ms var(--ease-out);
 }
@@ -566,17 +568,17 @@ body:has(.k3) { background: #f7f3ee; }
 .k3-card-outcome.has-metric { font-size: clamp(16px, 1.3vw, 19px); font-weight: 600; letter-spacing: -0.01em; line-height: 1.25; }
 .k3-card-metric { display: block; font-variant-numeric: tabular-nums; margin-bottom: 6px; font-size: clamp(52px, 5vw, 80px); font-weight: 800; line-height: 0.95; letter-spacing: -0.045em; color: var(--accent-on-ink); }
 .k3-card-cap { display: flex; align-items: baseline; gap: 10px; }
-.k3-num { font-family: var(--mono); font-size: 12px; color: var(--accent-on-ink); }
+.k3-num { font-family: var(--mono); font-size: 12px; color: var(--accent); }
 .k3-card-name { margin: 0; font-size: clamp(16px, 1.25vw, 19px); line-height: 1.25; font-weight: 650; }
-.k3-card-cat { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--accent-on-ink); }
-.k3-card-desc { margin: 0; font-size: 15px; line-height: 1.5; color: var(--on-ink-muted); }
-.k3-card-stack { margin: 0; padding-top: 10px; border-top: 1px solid var(--ink-3); font-family: var(--mono); font-size: 12px; color: var(--on-ink-muted); }
+.k3-card-cat { margin-left: auto; font-family: var(--mono); font-size: 12px; color: var(--accent); }
+.k3-card-desc { margin: 0; font-size: 15px; line-height: 1.5; color: var(--muted); }
+.k3-card-stack { margin: 0; padding-top: 10px; border-top: 1px solid var(--rule); font-family: var(--mono); font-size: 12px; color: var(--muted); }
 .k3-card.is-cta { grid-template-rows: 1fr auto; }
 .k3-card.is-cta .k3-card-media { aspect-ratio: auto; min-height: 180px; align-items: center; justify-content: center; background: var(--mark); border-color: transparent; text-decoration: none; }
 .k3-card.is-cta .k3-card-media:hover { background: #7a2238; }
 .k3-cta-word { font-size: clamp(30px, 3vw, 44px); font-weight: 800; line-height: 1; letter-spacing: -0.035em; text-align: center; color: var(--mark-ink); }
-.k3-cases-bar { height: 2px; margin-top: 36px; background: var(--ink-3); display: none; }
-.k3-cases-bar i { display: block; height: 100%; background: var(--accent-on-ink); transform-origin: left center; transform: scaleX(0); }
+.k3-cases-bar { height: 2px; margin-top: 36px; background: var(--rule); display: none; }
+.k3-cases-bar i { display: block; height: 100%; background: var(--accent); transform-origin: left center; transform: scaleX(0); }
 
 /* Десктоп с анимацией: секция закрепляется, лента едет вбок (класс ставит скрипт) */
 .k3-cases.is-track .k3-cases-pin { height: 100svh; display: flex; flex-direction: column; justify-content: center; padding-top: var(--header-h); overflow: hidden; }
@@ -610,14 +612,15 @@ body:has(.k3) { background: #f7f3ee; }
 }
 .k3 .scroll-dots { display: none; }
 @media (max-width: 760px) {
-  .k3 .scroll-dots { display: flex; align-items: center; gap: 12px; margin-top: 18px; font-family: var(--mono); font-size: 12px; color: var(--on-ink-muted); }
+  .k3 .scroll-dots { display: flex; align-items: center; gap: 12px; margin-top: 18px; font-family: var(--mono); font-size: 12px; color: var(--muted); }
   .k3 .scroll-track { display: flex; gap: 6px; }
-  .k3 .scroll-track i { width: 6px; height: 6px; border-radius: 3px; background: var(--ink-3); transition: width 200ms var(--ease-out); }
-  .k3 .scroll-track i.is-active { width: 18px; background: var(--accent-on-ink); }
+  .k3 .scroll-track i { width: 6px; height: 6px; border-radius: 3px; background: var(--rule); transition: width 200ms var(--ease-out); }
+  .k3 .scroll-track i.is-active { width: 18px; background: var(--accent); }
   .k3 .scroll-hint { margin-left: auto; }
 }
 
 /* ===== Почему мы ===== */
+.k3-proof { --muted: var(--on-ink-muted); --rule: var(--ink-3); --accent: var(--accent-on-ink); }
 .k3-stats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(16px, 3vw, 56px); margin: clamp(40px, 5vw, 64px) 0; }
 .k3-stats dt { font-variant-numeric: tabular-nums; font-size: clamp(34px, 7vw, 112px); font-weight: 800; line-height: 0.95; letter-spacing: -0.05em; }
 .k3-stats dd { margin: 10px 0 0; font-family: var(--mono); font-size: 14px; color: var(--muted); }
