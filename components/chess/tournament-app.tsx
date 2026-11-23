@@ -128,10 +128,7 @@ export function TournamentApp() {
     <a href="#ch-main" className="skip-link">к турниру</a>
     <header className="k3-header ch-header">
       <div className="wrap ch-wrap ch-header-inner">
-        <div className="ch-brand">
-          <a className="k3-logo ch-logo" href="https://kernell.ru">kernell<sup>TM</sup></a>
-          <span className="ch-product">/ chess</span>
-        </div>
+        <a className="k3-logo ch-logo" href="https://kernell.ru">kernell<sup>TM</sup><span className="ch-product">chess</span></a>
         <div className="ch-save" role="status">
           <i className={saveState === "error" ? "is-error" : ""} />
           {saveState === "loading" ? "Загрузка…" : saveState === "error" ? "Не сохранено" : "Сохранение в браузере"}
@@ -202,7 +199,7 @@ export function TournamentApp() {
       <Rules />
       {active && <div className="ch-reset-row"><p>Новая компания, новая игра.</p><button type="button" className="ch-text-button" onClick={() => setConfirmation("reset")}><RotateCcw size={14} /> Сбросить турнир</button></div>}
     </main>
-    <footer className="ch-footer ch-wrap"><a className="k3-logo" href="https://kernell.ru">kernell<sup>TM</sup></a><span>Для тех, кто любит думать на ход вперёд.</span><span>chess / 01</span></footer>
+    <footer className="ch-footer ch-wrap"><a className="k3-logo ch-logo" href="https://kernell.ru">kernell<sup>TM</sup><span className="ch-product">chess</span></a><span>Для тех, кто любит думать на ход вперёд.</span><span>chess / 01</span></footer>
 
     <dialog ref={dialog} className="ch-dialog" onCancel={() => setConfirmation(null)} onClick={(e) => { if (e.target === dialog.current) setConfirmation(null); }} aria-labelledby="confirm-title" aria-describedby="confirm-description">
       <div className="ch-dialog-inner"><button className="ch-dialog-close" type="button" aria-label="Закрыть" onClick={() => setConfirmation(null)}><X size={20} /></button><span className="ch-section-number">{confirmation === "reset" ? "НОВАЯ ИГРА" : "ШАГ НАЗАД"}</span><h2 id="confirm-title" className="k3-why-title">{confirmation === "reset" ? "Сбросить турнир?" : `Отменить тур ${tournament.rounds.length}?`}</h2><p id="confirm-description">{confirmation === "reset" ? "Список игроков, все туры и результаты будут удалены из этого браузера." : tournament.rounds.length > 1 ? `Пары и результаты тура ${tournament.rounds.length} будут удалены. Тур ${tournament.rounds.length - 1} снова станет доступен для исправлений. Его результаты сохранятся.` : "Пары и результаты первого тура будут удалены. Вы вернётесь к списку участников и сможете провести жеребьёвку заново."}</p><div className="ch-dialog-actions"><button type="button" className="ch-button ch-secondary" autoFocus onClick={() => setConfirmation(null)}>Продолжить турнир</button><button type="button" className="ch-button ch-primary" onClick={confirmAction}>{confirmation === "reset" ? "Сбросить" : "Отменить тур"}</button></div></div>

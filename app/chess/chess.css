@@ -16,8 +16,8 @@
 .chess-app :is(button, a, textarea, summary):focus-visible { outline: 2px solid var(--mark); outline-offset: 4px; }
 .ch-wrap { width: min(1320px, 100%); padding-inline: clamp(20px, 4vw, 48px); margin-inline: auto; }
 .ch-header.k3-header { position: sticky; }
-.ch-brand { display: flex; align-items: center; gap: 24px; flex-shrink: 0; }
-.ch-product { font: var(--ch-label)/1.45 var(--mono); color: var(--muted); }
+.ch-logo { display: inline-block; flex-shrink: 0; white-space: nowrap; line-height: 1.45; }
+.ch-product { font-size: 12px; font-weight: 400; letter-spacing: -.02em; color: var(--accent); margin-left: 10px; padding-left: 10px; border-left: 1px solid var(--rule); }
 .ch-save, .ch-home-link { display: flex; gap: 8px; align-items: center; font: var(--ch-label)/1.45 var(--mono); color: var(--muted); white-space: nowrap; }
 .ch-save i { height: 6px; width: 6px; border-radius: 50%; background: var(--mark); flex: 0 0 auto; }
 .ch-eyebrow i { flex-shrink: 0; }
@@ -177,7 +177,6 @@
   .ch-home-link { display: none; }
 }
 @media (max-width: 520px) {
-  .ch-product { display: none; }
   .ch-save { font-size: var(--ch-caption); }
 }
 @media (max-width: 700px) {
@@ -206,6 +205,7 @@
   .ch-standings tbody th { max-width: 160px; }
 }
 @media (max-width: 370px) {
+  .ch-save { max-width: 110px; white-space: normal; }
   .ch-intro-meta { gap: 6px 10px; }
   .ch-intro-meta span + span::before { margin-right: 10px; }
   .ch-bye-points { display: none; }
