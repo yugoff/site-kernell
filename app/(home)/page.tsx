@@ -1,11 +1,11 @@
-import { Cases } from "@/components/v3/cases";
-import { Chrome } from "@/components/v3/chrome";
-import { DocCheck } from "@/components/v3/doc-check";
-import { Hero } from "@/components/v3/hero";
-import { Outro } from "@/components/v3/outro";
-import { Proof } from "@/components/v3/proof";
-import { RagChat } from "@/components/v3/rag-chat";
-import { Route } from "@/components/v3/route";
+import { Cases } from "@/components/home/cases";
+import { Chrome } from "@/components/home/chrome";
+import { DocCheck } from "@/components/home/doc-check";
+import { Hero } from "@/components/home/hero";
+import { Outro } from "@/components/home/outro";
+import { Proof } from "@/components/home/proof";
+import { RagChat } from "@/components/home/rag-chat";
+import { Route } from "@/components/home/route";
 
 export default function HomePage() {
   return (

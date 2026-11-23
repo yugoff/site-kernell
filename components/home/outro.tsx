@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { gsap, ScrollTrigger, SplitText, useGSAP, MQ, safeHandler } from "./gsap";
-import { CopyButton } from "@/components/v2/copy-button";
+import { CopyButton } from "@/components/home/copy-button";
 import { EMAIL, LEGAL, MAIL_DISCUSS, TELEGRAM_HANDLE, TELEGRAM_URL } from "@/lib/contact";
 
 /** Финал: заголовок появляется по буквам, кнопка «магнитом» тянется к курсору. */

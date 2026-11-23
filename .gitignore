@@ -4,5 +4,5 @@ out
 next-env.d.ts
 *.tsbuildinfo
 presentations/
-# /brag: рабочие файлы ролика (готовые копии лежат в public/v2/)
+# Архивные рабочие файлы ролика
 brag-output/

@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 
-// Описание главной (интерактивная версия). Подстраницы /v1, /v2, /v3 переопределяют его и закрыты от индексации.
+// Метаданные основного сайта.
 export const metadata: Metadata = {
   title: "Kernell — ИИ, который окупается",
   description:

@@ -5,8 +5,8 @@ import { useEffect, useState } from "react";
 const pad = (n: number) => String(n).padStart(2, "0");
 
 /**
- * Счётчик и точки под горизонтальной лентой карточек. Лента листается только на телефоне
- * (см. .cards в v2.css), поэтому и индикатор виден только там.
+ * Счётчик и точки под горизонтальной лентой карточек. Лента листается только на телефоне,
+ * поэтому и индикатор виден только там.
  */
 export function ScrollDots({ targetId, count }: { targetId: string; count: number }) {
   const [active, setActive] = useState(0);

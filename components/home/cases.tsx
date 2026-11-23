@@ -2,7 +2,7 @@
 
 import { useRef } from "react";
 import { gsap, ScrollTrigger, useGSAP, MQ, countUp } from "./gsap";
-import { ScrollDots } from "@/components/v2/scroll-dots";
+import { ScrollDots } from "@/components/home/scroll-dots";
 import { cases, pad } from "@/lib/site-content";
 
 /**
