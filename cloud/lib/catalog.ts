@@ -52,6 +52,7 @@ export const sections = [
   "overview",
   "servers",
   "domains",
+  "infra",
   "billing",
   "orders",
   "settings",
@@ -62,6 +63,7 @@ export const sectionNames: Record<Section, string> = {
   overview: "Обзор",
   servers: "Серверы",
   domains: "Домены",
+  infra: "Инфраструктура",
   billing: "Финансы",
   orders: "Заказы",
   settings: "Настройки",
@@ -82,17 +84,76 @@ export function dateLabel(value: string) {
   });
 }
 
-export type User = { id: string; name: string; email: string; demo: boolean };
+export type User = {
+  id: string;
+  name: string;
+  email: string;
+  demo: boolean;
+  emailVerified?: boolean;
+};
+export type DomainPersonSummary = {
+  id: string;
+  type: "person" | "org" | "ip";
+  label: string;
+  summary: string;
+  twPersonId: number | null;
+  createdAt: number;
+};
+export type SshKeySummary = {
+  id: string;
+  name: string;
+  fingerprint: string;
+  twSshKeyId: number | null;
+  createdAt: number;
+};
+export type ServiceKind =
+  | "vps"
+  | "domain"
+  | "database"
+  | "s3"
+  | "k8s"
+  | "balancer"
+  | "firewall"
+  | "vpc"
+  | "floating_ip"
+  | "router"
+  | "network_drive"
+  | "cdn";
+
+export const SERVICE_KIND_LABELS: Record<ServiceKind, string> = {
+  vps: "VPS-сервер",
+  domain: "Домен",
+  database: "База данных",
+  s3: "S3-хранилище",
+  k8s: "Kubernetes",
+  balancer: "Балансировщик",
+  firewall: "Firewall",
+  vpc: "Приватная сеть VPC",
+  floating_ip: "Плавающий IP",
+  router: "Роутер",
+  network_drive: "Сетевой диск",
+  cdn: "CDN",
+};
+
 export type Service = {
   id: string;
-  kind: "vps" | "domain";
+  kind: ServiceKind;
   name: string;
-  status: "running" | "stopped" | "active";
+  status:
+    | "running"
+    | "stopped"
+    | "active"
+    | "provisioning"
+    | "reinstalling"
+    | "error";
   price: number;
   renewal: string;
   details: string;
   address: string;
   autoRenew: boolean;
+  twResourceId?: string | null;
+  hasCredentials?: boolean;
+  metadata?: Record<string, unknown> | null;
 };
 export type Order = {
   id: string;
@@ -100,6 +161,24 @@ export type Order = {
   amount: number;
   created: string;
   status: string;
+  kind?: string | null;
+};
+export type LedgerEntry = {
+  id: string;
+  direction: "credit" | "debit";
+  amountRub: number;
+  kind: string;
+  note: string | null;
+  createdAt: string;
+};
+export type PaymentSummary = {
+  id: string;
+  provider: string;
+  externalId: string | null;
+  amountRub: number;
+  status: string;
+  receiptUrl: string | null;
+  createdAt: string;
 };
 export type Activity = { id: number; title: string; created: string };
 export type Account = {
@@ -108,4 +187,10 @@ export type Account = {
   orders: Order[];
   activity: Activity[];
   balance: number;
+  domainPersons?: DomainPersonSummary[];
+  sshKeys?: SshKeySummary[];
+  ledger?: LedgerEntry[];
+  payments?: PaymentSummary[];
+  yookassaEnabled?: boolean;
+  timewebEnabled?: boolean;
 };

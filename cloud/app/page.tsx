@@ -8,12 +8,7 @@ import {
   Terminal,
   Wallet,
 } from "lucide-react";
-import {
-  Header,
-  Footer,
-  DemoButton,
-  PreviewNotice,
-} from "@cloud/components/ui";
+import { Header, Footer, DemoButton } from "@cloud/components/ui";
 import { DomainSearch, PlanCards } from "@cloud/components/catalog";
 import { currentUser } from "@cloud/lib/auth";
 
@@ -22,7 +17,7 @@ export default async function Home() {
   return (
     <>
       <Header signedIn={Boolean(user)} />
-      <main id="main">
+      <main id="main" className="cloud-home">
         <section className="hero wrap">
           <div className="hero-copy">
             <p className="eyebrow eyebrow-hero">kernell · домены и VPS</p>
@@ -109,26 +104,25 @@ export default async function Home() {
             </div>
           </div>
         </section>
-        <div className="wrap">
-          <PreviewNotice />
-        </div>
-        <section className="section wrap">
-          <div className="section-heading">
-            <div>
-              <p className="eyebrow">начните с имени</p>
-              <h2>
-                У каждой идеи
-                <br />
-                есть свой <em>адрес.</em>
-              </h2>
+        <section className="section domain-section" aria-labelledby="cloud-domain-title">
+          <div className="wrap">
+            <div className="section-heading">
+              <div>
+                <p className="eyebrow">начните с имени</p>
+                <h2 id="cloud-domain-title">
+                  У каждой идеи
+                  <br />
+                  есть свой <em>адрес.</em>
+                </h2>
+              </div>
+              <p>
+                Найдите имя для сайта, приложения
+                <br />{" "}
+                или следующего большого проекта.
+              </p>
             </div>
-            <p>
-              Найдите имя для сайта, приложения
-              <br />
-              или следующего большого проекта.
-            </p>
+            <DomainSearch compact />
           </div>
-          <DomainSearch compact />
         </section>
         <section className="section plans-section">
           <div className="wrap">
@@ -145,7 +139,7 @@ export default async function Home() {
                 подробнее о серверах
               </Link>
             </div>
-            <PlanCards />
+            <PlanCards mobileCarousel />
             <p className="pricing-note">
               Предварительные тарифы для знакомства с сервисом. Покупки станут
               доступны после запуска.

@@ -1,0 +1,578 @@
+--- ALL PATHS BY TAG ---
+
+## AI Gateway (14)
+GET    /api/v1/cloud-ai/ai-keys  -- Получение списка ключей AI Gateway
+POST   /api/v1/cloud-ai/ai-keys  -- Создание ключа AI Gateway
+GET    /api/v1/cloud-ai/ai-keys/statistic/calls  -- Получение статистики запросов ключа AI Gateway
+GET    /api/v1/cloud-ai/ai-keys/statistic/models  -- Получение списка моделей, использованных ключом AI Gateway
+GET    /api/v1/cloud-ai/ai-keys/statistic/token-usage  -- Получение статистики расхода токенов ключа AI Gateway
+PATCH  /api/v1/cloud-ai/ai-keys/{key_id}  -- Изменение ключа AI Gateway
+DELETE /api/v1/cloud-ai/ai-keys/{key_id}  -- Удаление ключа AI Gateway
+GET    /api/v1/cloud-ai/ai-keys/{key_id}/entity-limits  -- Получение списка лимитов ключа AI Gateway
+POST   /api/v1/cloud-ai/ai-keys/{key_id}/entity-limits  -- Создание лимита ключа AI Gateway
+PUT    /api/v1/cloud-ai/ai-keys/{key_id}/entity-limits/sync  -- Синхронизация лимитов ключа AI Gateway
+GET    /api/v1/cloud-ai/ai-keys/{key_id}/entity-limits/{limit_id}  -- Получение лимита ключа AI Gateway
+PATCH  /api/v1/cloud-ai/ai-keys/{key_id}/entity-limits/{limit_id}  -- Изменение лимита ключа AI Gateway
+DELETE /api/v1/cloud-ai/ai-keys/{key_id}/entity-limits/{limit_id}  -- Удаление лимита ключа AI Gateway
+PUT    /api/v1/cloud-ai/ai-keys/{key_id}/regenerate  -- Перевыпуск ключа AI Gateway
+
+## AI Gateway API (20)
+POST   /v1/audio/speech  -- Синтез речи
+POST   /v1/audio/transcriptions  -- Распознавание речи
+POST   /v1/batches  -- Создание батча
+GET    /v1/batches  -- Получение списка батчей
+GET    /v1/batches/{batch_id}  -- Получение батча
+POST   /v1/batches/{batch_id}/cancel  -- Отмена батча
+POST   /v1/chat/completions  -- Генерация ответа в диалоге (Chat Completions)
+POST   /v1/completions  -- Продолжение текста (Completions)
+POST   /v1/embeddings  -- Получение эмбеддингов
+POST   /v1/files  -- Загрузка файла
+GET    /v1/files/{file_id}  -- Получение информации о файле
+DELETE /v1/files/{file_id}  -- Удаление файла
+GET    /v1/files/{file_id}/content  -- Скачивание файла
+POST   /v1/images/edits  -- Редактирование изображений
+POST   /v1/images/generations  -- Генерация изображений
+GET    /v1/models  -- Получение списка моделей AI Gateway
+POST   /v1/responses  -- Создание ответа (Responses API)
+GET    /v1/responses/{response_id}  -- Получение ответа (Responses API)
+DELETE /v1/responses/{response_id}  -- Удаление ответа (Responses API)
+POST   /v1/responses/{response_id}/cancel  -- Отмена фонового ответа (Responses API)
+
+## AI Агенты (20)
+GET    /api/v1/cloud-ai/agents  -- Получение списка AI агентов
+POST   /api/v1/cloud-ai/agents  -- Создание AI агента
+GET    /api/v1/cloud-ai/agents/{id}  -- Получение AI агента
+PATCH  /api/v1/cloud-ai/agents/{id}  -- Обновление AI агента
+DELETE /api/v1/cloud-ai/agents/{id}  -- Удаление AI агента
+POST   /api/v1/cloud-ai/agents/{id}/add-additional-token-package  -- Добавление дополнительного пакета токенов
+GET    /api/v1/cloud-ai/agents/{id}/chat-list  -- Получение списка чатов агента
+GET    /api/v1/cloud-ai/agents/{id}/chat-list/{chat_id}/messages  -- Получение сообщений чата агента
+GET    /api/v1/cloud-ai/agents/{id}/chats/docs  -- Выгрузка чатов агента в CSV
+GET    /api/v1/cloud-ai/agents/{id}/entity-limits  -- Получение лимитов агента
+POST   /api/v1/cloud-ai/agents/{id}/entity-limits  -- Создание лимита агента
+PUT    /api/v1/cloud-ai/agents/{id}/entity-limits/sync  -- Синхронизация лимитов агента за период
+GET    /api/v1/cloud-ai/agents/{id}/entity-limits/{limit_id}  -- Получение лимита агента
+PATCH  /api/v1/cloud-ai/agents/{id}/entity-limits/{limit_id}  -- Изменение лимита агента
+DELETE /api/v1/cloud-ai/agents/{id}/entity-limits/{limit_id}  -- Удаление лимита агента
+PATCH  /api/v1/cloud-ai/agents/{id}/model  -- Смена модели AI агента
+GET    /api/v1/cloud-ai/agents/{id}/statistic  -- Получение статистики использования токенов агента
+POST   /api/v2/cloud-ai/agents  -- Создание AI агента
+GET    /api/v3/cloud-ai/agents  -- Получение списка AI агентов (v3)
+GET    /api/v3/cloud-ai/agents/{id}  -- Получение AI агента (v3)
+
+## AI Модели (8)
+GET    /api/v1/cloud-ai/models  -- Получение списка моделей (v1)
+GET    /api/v1/cloud-ai/models/{id}/token-packages  -- Получение пакетов токенов модели
+GET    /api/v1/cloud-ai/providers  -- Получение списка провайдеров моделей
+GET    /api/v1/cloud-ai/providers/{id}  -- Получение провайдера моделей
+GET    /api/v1/cloud-ai/token-packages/agents  -- Получение списка пакетов токенов для агентов
+GET    /api/v1/cloud-ai/token-packages/knowledge-bases  -- Получение списка пакетов токенов для баз знаний
+GET    /api/v3/cloud-ai/model-parameters  -- Получение справочника характеристик моделей
+GET    /api/v3/cloud-ai/models  -- Получение списка моделей
+
+## AI-решения (22)
+GET    /api/v1/cloud-ai/solutions  -- Получение списка AI-решений
+POST   /api/v1/cloud-ai/solutions  -- Создание AI-решения
+GET    /api/v1/cloud-ai/solutions/types  -- Получение списка типов AI-решений
+GET    /api/v1/cloud-ai/solutions/{solution_id}  -- Получение AI-решения
+PATCH  /api/v1/cloud-ai/solutions/{solution_id}  -- Изменение AI-решения
+DELETE /api/v1/cloud-ai/solutions/{solution_id}  -- Удаление AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/ai-key/regenerate  -- Перевыпуск ключа AI Gateway решения
+GET    /api/v1/cloud-ai/solutions/{solution_id}/chat/conversations  -- Получение списка разговоров AI-решения
+GET    /api/v1/cloud-ai/solutions/{solution_id}/chat/conversations/{conversation_id}/messages  -- Получение истории разговора AI-решения
+GET    /api/v1/cloud-ai/solutions/{solution_id}/chat/history  -- Получение всей истории чата AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/chat/messages  -- Отправка сообщения агенту AI-решения
+GET    /api/v1/cloud-ai/solutions/{solution_id}/chat/messages  -- Получение истории основного разговора AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/chat/reset  -- Сброс контекста разговора AI-решения
+GET    /api/v1/cloud-ai/solutions/{solution_id}/chat/status  -- Получение статуса чата AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/chat/stop  -- Остановка хода агента AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/chat/stream  -- Отправка сообщения агенту AI-решения с потоковым ответом
+POST   /api/v1/cloud-ai/solutions/{solution_id}/shutdown  -- Выключение AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/start  -- Запуск AI-решения
+GET    /api/v1/cloud-ai/solutions/{solution_id}/telegram/bots  -- Получение списка Telegram-ботов AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/telegram/bots  -- Подключение Telegram-бота к AI-решению
+DELETE /api/v1/cloud-ai/solutions/{solution_id}/telegram/bots/{account_key}  -- Отключение Telegram-бота от AI-решения
+POST   /api/v1/cloud-ai/solutions/{solution_id}/telegram/bots/{account_key}/pairing/approve  -- Подтверждение владельца Telegram-бота AI-решения
+
+## Apps (22)
+POST   /api/v1/apps  -- Создание приложения
+GET    /api/v1/apps  -- Получение списка приложений
+GET    /api/v1/apps/{app_id}  -- Получение приложения по id
+PATCH  /api/v1/apps/{app_id}  -- Изменение настроек приложения
+DELETE /api/v1/apps/{app_id}  -- Удаление приложения
+PATCH  /api/v1/apps/{app_id}/action/{action}  -- Изменение состояния приложения
+POST   /api/v1/apps/{app_id}/deploy  -- Запуск деплоя приложения
+GET    /api/v1/apps/{app_id}/deploy/{deploy_id}/logs  -- Получение логов деплоя приложения
+POST   /api/v1/apps/{app_id}/deploy/{deploy_id}/stop  -- Остановка деплоя приложения
+GET    /api/v1/apps/{app_id}/deploys  -- Получение списка деплоев приложения
+GET    /api/v1/apps/{app_id}/logs  -- Получение логов приложения
+GET    /api/v1/apps/{app_id}/statistics  -- Получение статистики приложения
+GET    /api/v1/deploy-settings/apps  -- Получение списка дефолтных настроек деплоя для приложения
+GET    /api/v1/frameworks/apps  -- Получение списка доступных фреймворков для приложения
+GET    /api/v1/presets/apps  -- Получение списка доступных тарифов для приложения
+POST   /api/v1/vcs-provider  -- Привязка vcs провайдера
+GET    /api/v1/vcs-provider  -- Получение списка vcs провайдеров
+DELETE /api/v1/vcs-provider/{provider_id}  -- Отвязка vcs провайдера от аккаунта
+GET    /api/v1/vcs-provider/{provider_id}  -- Получение списка репозиториев vcs провайдера
+GET    /api/v1/vcs-provider/{provider_id}/repository/{repository_id}  -- Получение списка веток репозитория
+GET    /api/v1/vcs-provider/{provider_id}/repository/{repository_id}/branch  -- Получение списка коммитов ветки репозитория
+POST   /api/v2/apps  -- Создание приложения (v2)
+
+## CDN (20)
+GET    /api/v1/cdn/certificates  -- Получение списка сертификатов CDN
+POST   /api/v1/cdn/certificates  -- Загрузка собственного сертификата CDN
+POST   /api/v1/cdn/certificates/issue  -- Выпуск сертификата Let's Encrypt для CDN-ресурса
+GET    /api/v1/cdn/certificates/tasks  -- Получение списка задач на выпуск сертификатов
+POST   /api/v1/cdn/certificates/tasks/{task_id}/archive  -- Архивация задачи на выпуск сертификата
+DELETE /api/v1/cdn/certificates/{certificate_id}  -- Удаление сертификата CDN
+GET    /api/v1/cdn/http-resources  -- Получение списка CDN-ресурсов
+POST   /api/v1/cdn/http-resources  -- Создание CDN-ресурса
+GET    /api/v1/cdn/http-resources/{resource_id}  -- Получение CDN-ресурса
+PATCH  /api/v1/cdn/http-resources/{resource_id}  -- Изменение CDN-ресурса
+DELETE /api/v1/cdn/http-resources/{resource_id}  -- Удаление CDN-ресурса
+POST   /api/v1/cdn/http-resources/{resource_id}/clear-cache  -- Очистка кэша CDN-ресурса
+GET    /api/v1/cdn/http-resources/{resource_id}/configuration  -- Получение конфигурации CDN-ресурса
+POST   /api/v1/cdn/http-resources/{resource_id}/preload-cache  -- Предварительная загрузка кэша CDN-ресурса
+POST   /api/v1/cdn/http-resources/{resource_id}/resume  -- Возобновление раздачи CDN-ресурса
+GET    /api/v1/cdn/http-resources/{resource_id}/statistics  -- Получение статистики CDN-ресурса
+POST   /api/v1/cdn/http-resources/{resource_id}/suspend  -- Приостановка раздачи CDN-ресурса
+GET    /api/v1/cdn/nodes/http-resources/{resource_id}  -- Получение списка раздающих узлов CDN-ресурса
+GET    /api/v1/cdn/nodes/origin  -- Получение списка подсетей узлов CDN
+GET    /api/v1/cdn/presets  -- Получение списка тарифов CDN
+
+## Firewall (14)
+GET    /api/v1/firewall/groups  -- Получение групп правил
+POST   /api/v1/firewall/groups  -- Создание группы правил
+GET    /api/v1/firewall/groups/{group_id}  -- Получение информации о группе правил
+DELETE /api/v1/firewall/groups/{group_id}  -- Удаление группы правил
+PATCH  /api/v1/firewall/groups/{group_id}  -- Обновление группы правил
+GET    /api/v1/firewall/groups/{group_id}/resources  -- Получение слинкованных ресурсов
+POST   /api/v1/firewall/groups/{group_id}/resources/{resource_id}  -- Линковка ресурса в firewall group
+DELETE /api/v1/firewall/groups/{group_id}/resources/{resource_id}  -- Отлинковка ресурса из firewall group
+GET    /api/v1/firewall/groups/{group_id}/rules  -- Получение списка правил
+POST   /api/v1/firewall/groups/{group_id}/rules  -- Создание firewall правила
+GET    /api/v1/firewall/groups/{group_id}/rules/{rule_id}  -- Получение информации о правиле
+DELETE /api/v1/firewall/groups/{group_id}/rules/{rule_id}  -- Удаление firewall правила
+PATCH  /api/v1/firewall/groups/{group_id}/rules/{rule_id}  -- Обновление firewall правила
+GET    /api/v1/firewall/service/{resource_type}/{resource_id}  -- Получение групп правил для ресурса
+
+## Kubernetes (25)
+GET    /api/v1/k8s/clusters  -- Получение списка кластеров
+POST   /api/v1/k8s/clusters  -- Создание кластера
+GET    /api/v1/k8s/clusters/{cluster_id}  -- Получение информации о кластере
+DELETE /api/v1/k8s/clusters/{cluster_id}  -- Удаление кластера
+PATCH  /api/v1/k8s/clusters/{cluster_id}  -- Обновление информации о кластере
+GET    /api/v1/k8s/clusters/{cluster_id}/addons  -- Получение списка установленных дополнений
+POST   /api/v1/k8s/clusters/{cluster_id}/addons  -- Установка дополнения
+GET    /api/v1/k8s/clusters/{cluster_id}/addons-configs  -- Получение списка конфигураций дополнений
+POST   /api/v1/k8s/clusters/{cluster_id}/addons/{addon_id}  -- Изменение конфигурации дополнения
+DELETE /api/v1/k8s/clusters/{cluster_id}/addons/{addon_id}  -- Удаление дополнения
+GET    /api/v1/k8s/clusters/{cluster_id}/groups  -- Получение групп нод кластера
+POST   /api/v1/k8s/clusters/{cluster_id}/groups  -- Создание группы нод
+GET    /api/v1/k8s/clusters/{cluster_id}/groups/{group_id}  -- Получение информации о группе нод
+DELETE /api/v1/k8s/clusters/{cluster_id}/groups/{group_id}  -- Удаление группы нод
+GET    /api/v1/k8s/clusters/{cluster_id}/groups/{group_id}/nodes  -- Получение списка нод, принадлежащих группе
+POST   /api/v1/k8s/clusters/{cluster_id}/groups/{group_id}/nodes  -- Увеличение количества нод в группе на указанное количество
+DELETE /api/v1/k8s/clusters/{cluster_id}/groups/{group_id}/nodes  -- Уменьшение количества нод в группе на указанное количество
+GET    /api/v1/k8s/clusters/{cluster_id}/kubeconfig  -- Получение файла kubeconfig
+GET    /api/v1/k8s/clusters/{cluster_id}/nodes  -- Получение списка нод
+DELETE /api/v1/k8s/clusters/{cluster_id}/nodes/{node_id}  -- Удаление ноды
+GET    /api/v1/k8s/clusters/{cluster_id}/resources  -- Получение ресурсов кластера
+PATCH  /api/v1/k8s/clusters/{cluster_id}/versions/update  -- Обновление версии кластера
+GET    /api/v1/k8s/k8s-versions  -- Получение списка версий k8s
+GET    /api/v1/k8s/network-drivers  -- Получение списка сетевых драйверов k8s
+GET    /api/v1/presets/k8s  -- Получение списка тарифов
+
+## MCP (20)
+GET    /api/v1/cloud-ai/agents/{agent_id}/tools  -- Получение MCP-инструментов агента
+POST   /api/v1/cloud-ai/agents/{agent_id}/tools  -- Подключение MCP-инструмента к агенту
+PUT    /api/v1/cloud-ai/agents/{agent_id}/tools/{tool_id}  -- Изменение разрешённых методов MCP-инструмента у агента
+DELETE /api/v1/cloud-ai/agents/{agent_id}/tools/{tool_id}  -- Отключение MCP-инструмента от агента
+GET    /api/v1/cloud-ai/tools  -- Получение списка MCP-инструментов
+POST   /api/v1/cloud-ai/tools  -- Подключение собственного MCP-сервера
+POST   /api/v1/cloud-ai/tools/install  -- Установка MCP-инструмента из маркетплейса
+GET    /api/v1/cloud-ai/tools/oauth2/authorize-url/{tool_id}  -- Получение ссылки на OAuth2-авторизацию инструмента
+GET    /api/v1/cloud-ai/tools/templates/marketplace  -- Получение шаблонов MCP-инструментов из маркетплейса
+GET    /api/v1/cloud-ai/tools/templates/prices  -- Получение цен системных инструментов
+GET    /api/v1/cloud-ai/tools/{id}  -- Получение MCP-инструмента
+PUT    /api/v1/cloud-ai/tools/{id}  -- Изменение MCP-инструмента
+DELETE /api/v1/cloud-ai/tools/{id}  -- Удаление MCP-инструмента
+POST   /api/v1/cloud-ai/tools/{id}/refresh-methods  -- Обновление списка методов MCP-инструмента
+POST   /api/v1/mcp  -- Отправка JSON-RPC-сообщения серверу MCP
+GET    /api/v1/mcp  -- Открытие потока событий сервера MCP
+DELETE /api/v1/mcp  -- Завершение сессии сервера MCP
+POST   /api/v1/mcp/search  -- Отправка JSON-RPC-сообщения серверу MCP с поиском инструментов
+GET    /api/v1/mcp/search  -- Открытие потока событий сервера MCP с поиском инструментов
+DELETE /api/v1/mcp/search  -- Завершение сессии сервера MCP с поиском инструментов
+
+## S3-хранилище (14)
+GET    /api/v1/presets/storages  -- Получение списка тарифов для хранилищ
+GET    /api/v1/storages/buckets  -- Получение списка хранилищ аккаунта
+POST   /api/v1/storages/buckets  -- Создание хранилища
+GET    /api/v1/storages/buckets/{bucket_id}  -- Получение хранилища по ID
+DELETE /api/v1/storages/buckets/{bucket_id}  -- Удаление хранилища на аккаунте
+PATCH  /api/v1/storages/buckets/{bucket_id}  -- Изменение хранилища на аккаунте
+GET    /api/v1/storages/buckets/{bucket_id}/subdomains  -- Получение списка поддоменов хранилища
+POST   /api/v1/storages/buckets/{bucket_id}/subdomains  -- Добавление поддоменов для хранилища
+DELETE /api/v1/storages/buckets/{bucket_id}/subdomains  -- Удаление поддоменов хранилища
+GET    /api/v1/storages/buckets/{bucket_id}/transfer-status  -- Получение статуса переноса хранилища от стороннего S3 в Timeweb Cloud
+POST   /api/v1/storages/certificates/generate  -- Добавление сертификата для поддомена хранилища
+POST   /api/v1/storages/transfer  -- Перенос хранилища от стороннего провайдера S3 в Timeweb Cloud
+GET    /api/v1/storages/users  -- Получение списка пользователей хранилищ аккаунта
+PATCH  /api/v1/storages/users/{user_id}  -- Изменение пароля пользователя-администратора хранилища
+
+## SSH-ключи (7)
+POST   /api/v1/servers/{server_id}/ssh-keys  -- Добавление SSH-ключей на сервер
+DELETE /api/v1/servers/{server_id}/ssh-keys/{ssh_key_id}  -- Удаление SSH-ключей с сервера
+GET    /api/v1/ssh-keys  -- Получение списка SSH-ключей
+POST   /api/v1/ssh-keys  -- Создание SSH-ключа
+GET    /api/v1/ssh-keys/{ssh_key_id}  -- Получение SSH-ключа по ID
+PATCH  /api/v1/ssh-keys/{ssh_key_id}  -- Изменение SSH-ключа по ID
+DELETE /api/v1/ssh-keys/{ssh_key_id}  -- Удаление SSH-ключа по ID
+
+## VPC (7)
+DELETE /api/v1/vpcs/{vpc_id}  -- Удаление VPC по ID сети
+GET    /api/v1/vpcs/{vpc_id}/ports  -- Получение списка портов для VPC
+GET    /api/v2/vpcs  -- Получение списка VPCs
+POST   /api/v2/vpcs  -- Создание VPC
+GET    /api/v2/vpcs/{vpc_id}  -- Получение VPC
+PATCH  /api/v2/vpcs/{vpc_id}  -- Изменение VPC по ID сети
+GET    /api/v2/vpcs/{vpc_id}/services  -- Получение списка сервисов в VPC
+
+## Аккаунт (11)
+GET    /api/v1/account/notification-settings  -- Получение настроек уведомлений аккаунта
+PATCH  /api/v1/account/notification-settings  -- Изменение настроек уведомлений аккаунта
+GET    /api/v1/account/status  -- Получение статуса аккаунта
+GET    /api/v1/auth/access  -- Получить информацию о ограничениях авторизации пользователя
+GET    /api/v1/auth/access/countries  -- Получение списка стран
+POST   /api/v1/auth/access/countries  -- Добавление стран в список разрешенных
+DELETE /api/v1/auth/access/countries  -- Удаление стран из списка разрешенных
+POST   /api/v1/auth/access/countries/enabled  -- Включение/отключение ограничений по стране
+POST   /api/v1/auth/access/ips  -- Добавление IP-адресов в список разрешенных
+DELETE /api/v1/auth/access/ips  -- Удаление IP-адресов из списка разрешенных
+POST   /api/v1/auth/access/ips/enabled  -- Включение/отключение ограничений по IP-адресу
+
+## Базы данных (40)
+GET    /api/v1/configurator/databases  -- Получение списка конфигураторов баз данных
+GET    /api/v1/database-types  -- Получение списка типов кластеров баз данных
+POST   /api/v1/databases  -- Создание кластера базы данных
+GET    /api/v1/databases  -- Получение списка кластеров баз данных
+PATCH  /api/v1/databases/{db_cluster_id}  -- Изменение кластера базы данных
+DELETE /api/v1/databases/{db_cluster_id}  -- Удаление кластера базы данных
+GET    /api/v1/databases/{db_cluster_id}  -- Получение кластера базы данных
+POST   /api/v1/databases/{db_cluster_id}/action  -- Выполнение действия над кластером базы данных
+POST   /api/v1/databases/{db_cluster_id}/admins  -- Создание пользователя базы данных
+GET    /api/v1/databases/{db_cluster_id}/admins  -- Получение списка пользователей базы данных
+PATCH  /api/v1/databases/{db_cluster_id}/admins/{admin_id}  -- Изменение пользователя базы данных
+DELETE /api/v1/databases/{db_cluster_id}/admins/{admin_id}  -- Удаление пользователя базы данных
+GET    /api/v1/databases/{db_cluster_id}/admins/{admin_id}  -- Получение пользователя базы данных
+POST   /api/v1/databases/{db_cluster_id}/instances  -- Создание инстанса базы данных
+GET    /api/v1/databases/{db_cluster_id}/instances  -- Получение списка инстансов баз данных
+PATCH  /api/v1/databases/{db_cluster_id}/instances/{instance_id}  -- Изменение инстанса базы данных
+DELETE /api/v1/databases/{db_cluster_id}/instances/{instance_id}  -- Удаление инстанса базы данных
+GET    /api/v1/databases/{db_cluster_id}/instances/{instance_id}  -- Получение инстанса базы данных
+GET    /api/v1/databases/{db_cluster_id}/privileges  -- Получение привилегий кластера базы данных
+GET    /api/v1/databases/{db_cluster_id}/replicas  -- Получение списка реплик кластера базы данных
+GET    /api/v1/dbs/default-parameters  -- Получение рекомендуемых значений параметров баз данных
+GET    /api/v1/dbs/parameters  -- Получение списка параметров баз данных
+GET    /api/v1/dbs/{db_id}/auto-backups  -- Получение настроек автобэкапов базы данных
+PATCH  /api/v1/dbs/{db_id}/auto-backups  -- Изменение настроек автобэкапов базы данных
+GET    /api/v1/dbs/{db_id}/backups  -- Список бэкапов базы данных
+POST   /api/v1/dbs/{db_id}/backups  -- Создание бэкапа базы данных
+DELETE /api/v1/dbs/{db_id}/backups/{backup_id}  -- Удаление бэкапа базы данных
+GET    /api/v1/dbs/{db_id}/backups/{backup_id}  -- Получение бэкапа базы данных
+PATCH  /api/v1/dbs/{db_id}/backups/{backup_id}  -- Изменение комментария к бэкапу базы данных
+PUT    /api/v1/dbs/{db_id}/backups/{backup_id}  -- Восстановление базы данных из бэкапа
+POST   /api/v1/dbs/{db_id}/backups/{backup_id}/download-url  -- Получение ссылки для скачивания бэкапа базы данных
+PATCH  /api/v2/databases/{db_cluster_id}  -- Изменение кластера базы данных (v2)
+GET    /api/v2/databases/{db_id}/backups  -- Список S3-бэкапов базы данных
+POST   /api/v2/databases/{db_id}/backups  -- Создание S3-бэкапа базы данных
+GET    /api/v2/databases/{db_id}/backups/{backup_id}  -- Получение S3-бэкапа базы данных
+PATCH  /api/v2/databases/{db_id}/backups/{backup_id}  -- Изменение комментария S3-бэкапа базы данных
+DELETE /api/v2/databases/{db_id}/backups/{backup_id}  -- Удаление S3-бэкапа базы данных
+POST   /api/v2/databases/{db_id}/backups/{backup_id}/restore  -- Восстановление базы данных из S3-бэкапа
+GET    /api/v2/dbs/presets/{preset_id}  -- Получение тарифа для базы данных
+GET    /api/v2/presets/dbs  -- Получение списка тарифов для баз данных
+
+## Базы знаний (19)
+GET    /api/v1/cloud-ai/knowledge-bases  -- Получение списка баз знаний (v1)
+POST   /api/v1/cloud-ai/knowledge-bases  -- Создание базы знаний
+GET    /api/v1/cloud-ai/knowledge-bases/{id}  -- Получение базы знаний со списком документов
+PATCH  /api/v1/cloud-ai/knowledge-bases/{id}  -- Изменение базы знаний
+DELETE /api/v1/cloud-ai/knowledge-bases/{id}  -- Удаление базы знаний
+POST   /api/v1/cloud-ai/knowledge-bases/{id}/add-additional-token-package  -- Покупка дополнительных пакетов токенов
+POST   /api/v1/cloud-ai/knowledge-bases/{id}/documents  -- Добавление документа по ссылке
+PATCH  /api/v1/cloud-ai/knowledge-bases/{id}/documents/{document_id}  -- Изменение документа
+DELETE /api/v1/cloud-ai/knowledge-bases/{id}/documents/{document_id}  -- Удаление документа из базы знаний
+GET    /api/v1/cloud-ai/knowledge-bases/{id}/documents/{document_id}/download  -- Скачивание файла документа
+POST   /api/v1/cloud-ai/knowledge-bases/{id}/documents/{document_id}/reindex  -- Переиндексация документа
+POST   /api/v1/cloud-ai/knowledge-bases/{id}/link/{agent_id}  -- Привязка базы знаний к агенту
+PATCH  /api/v1/cloud-ai/knowledge-bases/{id}/link/{agent_id}  -- Изменение режима поиска по базе знаний для агента
+DELETE /api/v1/cloud-ai/knowledge-bases/{id}/link/{agent_id}  -- Отвязка базы знаний от агента
+POST   /api/v1/cloud-ai/knowledge-bases/{id}/upload  -- Загрузка файлов в базу знаний
+GET    /api/v2/cloud-ai/knowledge-bases  -- Получение списка баз знаний (v2)
+GET    /api/v2/cloud-ai/knowledge-bases/{id}/documents  -- Получение списка документов базы знаний
+GET    /api/v3/cloud-ai/knowledge-bases  -- Получение списка баз знаний
+GET    /api/v3/cloud-ai/knowledge-bases/{id}  -- Получение базы знаний
+
+## Балансировщики (13)
+GET    /api/v1/balancers  -- Получение списка всех бaлансировщиков
+POST   /api/v1/balancers  -- Создание бaлансировщика
+GET    /api/v1/balancers/{balancer_id}  -- Получение бaлансировщика
+PATCH  /api/v1/balancers/{balancer_id}  -- Обновление балансировщика
+DELETE /api/v1/balancers/{balancer_id}  -- Удаление балансировщика
+GET    /api/v1/balancers/{balancer_id}/ips  -- Получение списка IP-адресов балансировщика
+POST   /api/v1/balancers/{balancer_id}/ips  -- Добавление IP-адресов к балансировщику
+DELETE /api/v1/balancers/{balancer_id}/ips  -- Удаление IP-адресов из балансировщика
+GET    /api/v1/balancers/{balancer_id}/rules  -- Получение правил балансировщика
+POST   /api/v1/balancers/{balancer_id}/rules  -- Создание правила для балансировщика
+PATCH  /api/v1/balancers/{balancer_id}/rules/{rule_id}  -- Обновление правила для балансировщика
+DELETE /api/v1/balancers/{balancer_id}/rules/{rule_id}  -- Удаление правила для балансировщика
+GET    /api/v1/presets/balancers  -- Получение списка тарифов для балансировщика
+
+## Выделенные серверы (7)
+GET    /api/v1/dedicated-servers  -- Получение списка выделенных серверов
+POST   /api/v1/dedicated-servers  -- Создание выделенного сервера
+GET    /api/v1/dedicated-servers/{dedicated_id}  -- Получение выделенного сервера
+PATCH  /api/v1/dedicated-servers/{dedicated_id}  -- Обновление выделенного сервера
+DELETE /api/v1/dedicated-servers/{dedicated_id}  -- Удаление выделенного сервера
+GET    /api/v1/presets/dedicated-servers  -- Получение списка тарифов для выделенного сервера
+GET    /api/v1/presets/dedicated-servers/{preset_id}/additional-services  -- Получение дополнительных услуг для выделенного сервера
+
+## Домены (30)
+POST   /api/v1/add-domain/{fqdn}  -- Добавление домена на аккаунт
+GET    /api/v1/check-domain/{fqdn}  -- Проверить, доступен ли домен для регистрации
+GET    /api/v1/domains  -- Получение списка всех доменов
+GET    /api/v1/domains-requests  -- Получение списка заявок на регистрацию/продление/трансфер домена
+POST   /api/v1/domains-requests  -- Создание заявки на регистрацию/продление/трансфер домена
+GET    /api/v1/domains-requests/{request_id}  -- Получение заявки на регистрацию/продление/трансфер домена
+PATCH  /api/v1/domains-requests/{request_id}  -- Оплата/обновление заявки на регистрацию/продление/трансфер домена
+GET    /api/v1/domains/{fqdn}  -- Получение информации о домене
+PATCH  /api/v1/domains/{fqdn}  -- Включение/выключение автопродления домена
+DELETE /api/v1/domains/{fqdn}  -- Удаление домена
+GET    /api/v1/domains/{fqdn}/default-dns-records  -- Получить информацию обо всех DNS-записях по умолчанию домена или поддомена
+GET    /api/v1/domains/{fqdn}/dns-records  -- Получить информацию обо всех пользовательских DNS-записях домена или поддомена
+POST   /api/v1/domains/{fqdn}/dns-records  -- Добавить информацию о DNS-записи для домена или поддомена
+PATCH  /api/v1/domains/{fqdn}/dns-records/{record_id}  -- Обновить информацию о DNS-записи домена или поддомена
+DELETE /api/v1/domains/{fqdn}/dns-records/{record_id}  -- Удалить информацию о DNS-записи для домена или поддомена
+GET    /api/v1/domains/{fqdn}/name-servers  -- Получение списка name-серверов домена
+PUT    /api/v1/domains/{fqdn}/name-servers  -- Изменение name-серверов домена
+POST   /api/v1/domains/{fqdn}/subdomains/{subdomain}  -- Добавление поддомена
+DELETE /api/v1/domains/{fqdn}/subdomains/{subdomain}  -- Удаление поддомена
+GET    /api/v1/persons  -- Получение списка администраторов доменов
+POST   /api/v1/persons  -- Создание администратора доменов
+GET    /api/v1/persons/{person_id}  -- Получение администратора доменов
+PUT    /api/v1/persons/{person_id}  -- Обновление контактных данных администратора доменов
+DELETE /api/v1/persons/{person_id}  -- Удаление администратора доменов
+GET    /api/v1/tlds  -- Получить информацию о доменных зонах
+GET    /api/v1/tlds/{tld_id}  -- Получить информацию о доменной зоне по ID
+GET    /api/v2/domains/{fqdn}/dns-records  -- Получить информацию обо всех пользовательских DNS-записях домена или поддомена
+POST   /api/v2/domains/{fqdn}/dns-records  -- Добавить информацию о DNS-записи для домена или поддомена
+PATCH  /api/v2/domains/{fqdn}/dns-records/{record_id}  -- Обновить информацию о DNS-записи домена или поддомена
+DELETE /api/v2/domains/{fqdn}/dns-records/{record_id}  -- Удалить информацию о DNS-записи для домена или поддомена
+
+## Интеграции AI агентов (18)
+POST   /api/v1/cloud-ai/agent/{agent_id}/crisp  -- Подключение агента к Crisp
+GET    /api/v1/cloud-ai/agent/{agent_id}/crisp  -- Получение интеграции агента с Crisp
+DELETE /api/v1/cloud-ai/agent/{agent_id}/crisp  -- Отключение агента от Crisp
+POST   /api/v1/cloud-ai/agent/{agent_id}/jivo  -- Подключение агента к Jivo
+GET    /api/v1/cloud-ai/agent/{agent_id}/jivo  -- Получение интеграции агента с Jivo
+DELETE /api/v1/cloud-ai/agent/{agent_id}/jivo  -- Отключение агента от Jivo
+GET    /api/v1/cloud-ai/agents/{agent_id}/bots  -- Получение списка Telegram-ботов агента
+GET    /api/v1/cloud-ai/agents/{agent_id}/max-bots  -- Получение списка ботов MAX агента
+GET    /api/v1/cloud-ai/bots  -- Получение списка Telegram-ботов
+POST   /api/v1/cloud-ai/bots  -- Подключение Telegram-бота к агенту
+GET    /api/v1/cloud-ai/bots/{bot_id}  -- Получение информации о Telegram-боте
+PATCH  /api/v1/cloud-ai/bots/{bot_id}  -- Изменение Telegram-бота
+DELETE /api/v1/cloud-ai/bots/{bot_id}  -- Отключение Telegram-бота
+GET    /api/v1/cloud-ai/max-bots  -- Получение списка ботов MAX
+POST   /api/v1/cloud-ai/max-bots  -- Подключение бота MAX к агенту
+GET    /api/v1/cloud-ai/max-bots/{bot_id}  -- Получение информации о боте MAX
+PATCH  /api/v1/cloud-ai/max-bots/{bot_id}  -- Изменение бота MAX
+DELETE /api/v1/cloud-ai/max-bots/{bot_id}  -- Отключение бота MAX
+
+## Локации (1)
+GET    /api/v2/locations  -- Получение списка локаций
+
+## Навыки AI агентов (20)
+GET    /api/v1/cloud-ai/agents/{agent_id}/skills  -- Получение навыков агента
+POST   /api/v1/cloud-ai/agents/{agent_id}/skills/connect  -- Подключение нескольких навыков к агенту
+POST   /api/v1/cloud-ai/agents/{agent_id}/skills/install-and-connect  -- Установка навыка из каталога и включение у агента
+POST   /api/v1/cloud-ai/agents/{agent_id}/skills/sync-versions  -- Перевод всех навыков агента на текущие версии
+PUT    /api/v1/cloud-ai/agents/{agent_id}/skills/{skill_id}  -- Включение и выключение навыка у агента
+DELETE /api/v1/cloud-ai/agents/{agent_id}/skills/{skill_id}  -- Отключение навыка от агента
+POST   /api/v1/cloud-ai/agents/{agent_id}/skills/{skill_id}/update-version  -- Перевод агента на текущую версию навыка
+GET    /api/v1/cloud-ai/skill-catalog  -- Получение каталога навыков
+POST   /api/v1/cloud-ai/skill-catalog/{catalog_item_id}/install  -- Установка навыка из каталога
+GET    /api/v1/cloud-ai/skills  -- Получение списка навыков
+POST   /api/v1/cloud-ai/skills  -- Создание навыка
+GET    /api/v1/cloud-ai/skills/{skill_id}  -- Получение навыка
+PATCH  /api/v1/cloud-ai/skills/{skill_id}  -- Изменение навыка
+DELETE /api/v1/cloud-ai/skills/{skill_id}  -- Удаление навыка
+POST   /api/v1/cloud-ai/skills/{skill_id}/agents/sync-versions  -- Перевод всех агентов навыка на текущую версию
+POST   /api/v1/cloud-ai/skills/{skill_id}/apply-catalog-update  -- Применение обновления навыка из каталога
+POST   /api/v1/cloud-ai/skills/{skill_id}/duplicate  -- Копирование навыка
+GET    /api/v1/cloud-ai/skills/{skill_id}/versions  -- Получение истории версий навыка
+GET    /api/v1/cloud-ai/skills/{skill_id}/versions/{version}  -- Получение версии навыка
+POST   /api/v1/cloud-ai/skills/{skill_id}/versions/{version}/rollback  -- Переключение навыка на версию из истории
+
+## Облачные серверы (46)
+GET    /api/v1/configurator/servers  -- Получение списка конфигураторов серверов
+GET    /api/v1/os/servers  -- Получение списка операционных систем
+GET    /api/v1/presets/servers  -- Получение списка тарифов серверов
+GET    /api/v1/restore-points  -- Получение списка снапшотов
+GET    /api/v1/restore-points/{vds_id}  -- Получение снапшота сервера
+POST   /api/v1/restore-points/{vds_id}/commit  -- Фиксация снапшота
+POST   /api/v1/restore-points/{vds_id}/create  -- Создание снапшота
+POST   /api/v1/restore-points/{vds_id}/rollback  -- Откат к снапшоту
+GET    /api/v1/servers  -- Получение списка серверов
+POST   /api/v1/servers  -- Создание сервера
+GET    /api/v1/servers/{server_id}  -- Получение сервера
+DELETE /api/v1/servers/{server_id}  -- Удаление сервера
+PATCH  /api/v1/servers/{server_id}  -- Изменение сервера
+POST   /api/v1/servers/{server_id}/action  -- Выполнение действия над сервером
+POST   /api/v1/servers/{server_id}/boot-mode  -- Выбор типа загрузки операционной системы сервера
+POST   /api/v1/servers/{server_id}/clone  -- Клонирование сервера
+GET    /api/v1/servers/{server_id}/disks  -- Получение списка дисков сервера
+POST   /api/v1/servers/{server_id}/disks  -- Создание диска сервера
+GET    /api/v1/servers/{server_id}/disks/{disk_id}  -- Получение диска сервера
+PATCH  /api/v1/servers/{server_id}/disks/{disk_id}  -- Изменение параметров диска сервера
+DELETE /api/v1/servers/{server_id}/disks/{disk_id}  -- Удаление диска сервера
+GET    /api/v1/servers/{server_id}/disks/{disk_id}/auto-backups  -- Получить настройки автобэкапов диска сервера
+PATCH  /api/v1/servers/{server_id}/disks/{disk_id}/auto-backups  -- Изменение настроек автобэкапов диска сервера
+POST   /api/v1/servers/{server_id}/disks/{disk_id}/backups  -- Создание бэкапа диска сервера
+GET    /api/v1/servers/{server_id}/disks/{disk_id}/backups  -- Получение списка бэкапов диска сервера
+PATCH  /api/v1/servers/{server_id}/disks/{disk_id}/backups/{backup_id}  -- Изменение бэкапа диска сервера
+DELETE /api/v1/servers/{server_id}/disks/{disk_id}/backups/{backup_id}  -- Удаление бэкапа диска сервера
+GET    /api/v1/servers/{server_id}/disks/{disk_id}/backups/{backup_id}  -- Получение бэкапа диска сервера
+POST   /api/v1/servers/{server_id}/disks/{disk_id}/backups/{backup_id}/action  -- Выполнение действия над бэкапом диска сервера
+POST   /api/v1/servers/{server_id}/disks/{disk_id}/backups/{backup_id}/download-url  -- Получение ссылки для скачивания бэкапа диска сервера
+POST   /api/v1/servers/{server_id}/hard-reboot  -- Принудительная перезагрузка сервера
+POST   /api/v1/servers/{server_id}/hard-shutdown  -- Принудительное выключение сервера
+POST   /api/v1/servers/{server_id}/image-unmount  -- Отмонтирование ISO образа и перезагрузка сервера
+GET    /api/v1/servers/{server_id}/ips  -- Получение списка IP-адресов сервера
+POST   /api/v1/servers/{server_id}/ips  -- Добавление IP-адреса сервера
+DELETE /api/v1/servers/{server_id}/ips  -- Удаление IP-адреса сервера
+PATCH  /api/v1/servers/{server_id}/ips  -- Изменение IP-адреса сервера
+PATCH  /api/v1/servers/{server_id}/local-networks/nat-mode  -- Изменение правил маршрутизации трафика сервера (NAT)
+GET    /api/v1/servers/{server_id}/logs  -- Получение списка логов сервера
+POST   /api/v1/servers/{server_id}/reboot  -- Перезагрузка сервера
+POST   /api/v1/servers/{server_id}/reset-password  -- Сброс пароля сервера
+POST   /api/v1/servers/{server_id}/shutdown  -- Выключение сервера
+POST   /api/v1/servers/{server_id}/start  -- Запуск сервера
+GET    /api/v1/servers/{server_id}/statistics  -- Получение статистики сервера
+GET    /api/v1/servers/{server_id}/statistics/{time_from}/{period}/{keys}  -- Получение статистики сервера
+GET    /api/v1/software/servers  -- Получение списка ПО из маркетплейса
+
+## Образы (10)
+GET    /api/v1/images  -- Получение списка образов
+POST   /api/v1/images  -- Создание образа
+GET    /api/v1/images/{image_id}  -- Получение информации о образе
+POST   /api/v1/images/{image_id}  -- Загрузка образа
+DELETE /api/v1/images/{image_id}  -- Удаление образа
+PATCH  /api/v1/images/{image_id}  -- Обновление информации о образе
+GET    /api/v1/images/{image_id}/download-url  -- Получение информации о ссылках на скачивание образов
+POST   /api/v1/images/{image_id}/download-url  -- Создание ссылки на скачивание образа
+GET    /api/v1/images/{image_id}/download-url/{image_url_id}  -- Получение информации о ссылке на скачивание образа
+DELETE /api/v1/images/{image_id}/download-url/{image_url_id}  -- Удаление ссылки на образ
+
+## Оплата (2)
+GET    /api/v1/account/finances  -- Получение платежной информации
+GET    /api/v1/account/services/cost  -- Получение стоимости сервисов
+
+## Плавающие IP (7)
+GET    /api/v1/floating-ips  -- Получение списка плавающих IP
+POST   /api/v1/floating-ips  -- Создание плавающего IP
+GET    /api/v1/floating-ips/{floating_ip_id}  -- Получение плавающего IP
+PATCH  /api/v1/floating-ips/{floating_ip_id}  -- Изменение плавающего IP по ID
+DELETE /api/v1/floating-ips/{floating_ip_id}  -- Удаление плавающего IP по ID
+POST   /api/v1/floating-ips/{floating_ip_id}/bind  -- Привязать IP к сервису
+POST   /api/v1/floating-ips/{floating_ip_id}/unbind  -- Отвязать IP от сервиса
+
+## Почта (14)
+GET    /api/v1/mail  -- Получение списка почтовых ящиков аккаунта
+GET    /api/v1/mail/domains/{domain}  -- Получение списка почтовых ящиков домена
+POST   /api/v1/mail/domains/{domain}  -- Создание почтового ящика
+POST   /api/v1/mail/domains/{domain}/batch  -- Множественное создание почтовых ящиков
+GET    /api/v1/mail/domains/{domain}/info  -- Получение почтовой информации о домене
+PATCH  /api/v1/mail/domains/{domain}/info  -- Изменение почтовой информации о домене
+GET    /api/v1/mail/domains/{domain}/mailboxes/{mailbox}  -- Получение почтового ящика
+DELETE /api/v1/mail/domains/{domain}/mailboxes/{mailbox}  -- Удаление почтового ящика
+PATCH  /api/v1/mail/domains/{domain}/mailboxes/{mailbox}  -- Изменение почтового ящика
+GET    /api/v2/mail  -- Получение списка всех почтовых ящиков аккаунта
+POST   /api/v2/mail/domains/{domain}  -- Создание почтового ящика
+POST   /api/v2/mail/domains/{domain}/batch  -- Множественное создание почтовых ящиков
+GET    /api/v2/mail/domains/{domain}/mailboxes/{mailbox}  -- Получение почтового ящика
+PATCH  /api/v2/mail/domains/{domain}/mailboxes/{mailbox}  -- Изменение почтового ящика
+
+## Проекты (25)
+GET    /api/v1/projects  -- Получение списка проектов
+POST   /api/v1/projects  -- Создание проекта
+GET    /api/v1/projects/resources/balancers  -- Получение списка всех балансировщиков на аккаунте
+GET    /api/v1/projects/resources/buckets  -- Получение списка всех хранилищ на аккаунте
+GET    /api/v1/projects/resources/clusters  -- Получение списка всех кластеров на аккаунте
+GET    /api/v1/projects/resources/databases  -- Получение списка всех баз данных на аккаунте
+GET    /api/v1/projects/resources/dedicated  -- Получение списка всех выделенных серверов на аккаунте
+GET    /api/v1/projects/resources/servers  -- Получение списка всех серверов на аккаунте
+GET    /api/v1/projects/{project_id}  -- Получение проекта по ID
+DELETE /api/v1/projects/{project_id}  -- Удаление проекта
+PUT    /api/v1/projects/{project_id}  -- Изменение проекта
+GET    /api/v1/projects/{project_id}/resources  -- Получение всех ресурсов проекта
+GET    /api/v1/projects/{project_id}/resources/balancers  -- Получение списка балансировщиков проекта
+POST   /api/v1/projects/{project_id}/resources/balancers  -- Добавление балансировщика в проект
+GET    /api/v1/projects/{project_id}/resources/buckets  -- Получение списка хранилищ проекта
+POST   /api/v1/projects/{project_id}/resources/buckets  -- Добавление хранилища в проект
+GET    /api/v1/projects/{project_id}/resources/clusters  -- Получение списка кластеров проекта
+POST   /api/v1/projects/{project_id}/resources/clusters  -- Добавление кластера в проект
+GET    /api/v1/projects/{project_id}/resources/databases  -- Получение списка баз данных проекта
+POST   /api/v1/projects/{project_id}/resources/databases  -- Добавление базы данных в проект
+GET    /api/v1/projects/{project_id}/resources/dedicated  -- Получение списка выделенных серверов проекта
+POST   /api/v1/projects/{project_id}/resources/dedicated  -- Добавление выделенного сервера в проект
+GET    /api/v1/projects/{project_id}/resources/servers  -- Получение списка серверов проекта
+POST   /api/v1/projects/{project_id}/resources/servers  -- Добавление сервера в проект
+PUT    /api/v1/projects/{project_id}/resources/transfer  -- Перенести ресурс в другой проект
+
+## Реестр контейнеров (7)
+GET    /api/v1/container-registry  -- Получение списка реестров контейнеров
+POST   /api/v1/container-registry  -- Создание реестра
+GET    /api/v1/container-registry/presets  -- Получение списка тарифов
+GET    /api/v1/container-registry/{registry_id}  -- Получение информации о реестре
+DELETE /api/v1/container-registry/{registry_id}  -- Удаление реестра
+PATCH  /api/v1/container-registry/{registry_id}  -- Обновление информации о реестре
+GET    /api/v1/container-registry/{registry_id}/repositories  -- Получение списка репозиториев
+
+## Роутеры (23)
+GET    /api/v1/presets/routers  -- Получение списка тарифов роутеров
+GET    /api/v1/routers  -- Получение списка роутеров
+POST   /api/v1/routers  -- Создание роутера
+GET    /api/v1/routers/networks/available  -- Получение списка доступных сетей
+GET    /api/v1/routers/{router_id}  -- Получение информации о роутере
+PATCH  /api/v1/routers/{router_id}  -- Обновление информации о роутере
+DELETE /api/v1/routers/{router_id}  -- Удаление роутера
+GET    /api/v1/routers/{router_id}/dnat-rules  -- Получение списка правил проброса портов
+POST   /api/v1/routers/{router_id}/dnat-rules  -- Добавление правила проброса портов
+GET    /api/v1/routers/{router_id}/dnat-rules/{dnat_id}  -- Получение правила проброса портов
+DELETE /api/v1/routers/{router_id}/dnat-rules/{dnat_id}  -- Удаление правила проброса портов
+GET    /api/v1/routers/{router_id}/networks  -- Получение списка сетей роутера
+POST   /api/v1/routers/{router_id}/networks  -- Подключение сетей к роутеру
+PATCH  /api/v1/routers/{router_id}/networks  -- Обновление сетей роутера
+PATCH  /api/v1/routers/{router_id}/networks/{network_name}  -- Обновление информации о сети
+DELETE /api/v1/routers/{router_id}/networks/{network_name}  -- Удаление сети из роутера
+PATCH  /api/v1/routers/{router_id}/networks/{network_name}/nat  -- Включение NAT для сети
+DELETE /api/v1/routers/{router_id}/networks/{network_name}/nat  -- Выключение NAT для сети
+GET    /api/v1/routers/{router_id}/static-routes  -- Получение списка статических маршрутов
+POST   /api/v1/routers/{router_id}/static-routes  -- Добавление статического маршрута
+GET    /api/v1/routers/{router_id}/static-routes/available  -- Получение доступных подсетей для статических маршрутов
+DELETE /api/v1/routers/{router_id}/static-routes/{static_route_id}  -- Удаление статического маршрута
+GET    /api/v1/routers/{router_id}/statistics/{time_from}/{period}/{keys}  -- Получение статистики роутера
+
+## Сетевые диски (9)
+GET    /api/v1/network-drives  -- Получение списка cетевых дисков
+POST   /api/v1/network-drives  -- Создание сетевого диска
+GET    /api/v1/network-drives/available-resources  -- Получение списка сервисов доступных для подключения диска
+GET    /api/v1/network-drives/{network_drive_id}  -- Получение сетевого диска
+PATCH  /api/v1/network-drives/{network_drive_id}  -- Изменение сетевого диска по ID
+DELETE /api/v1/network-drives/{network_drive_id}  -- Удаление сетевого диска по идентификатору
+POST   /api/v1/network-drives/{network_drive_id}/mount  -- Подключить сетевой диск к сервису
+POST   /api/v1/network-drives/{network_drive_id}/unmount  -- Отключить сетевой диск от сервиса
+GET    /api/v1/presets/network-drives  -- Получение списка доступных тарифов для сетевого диска

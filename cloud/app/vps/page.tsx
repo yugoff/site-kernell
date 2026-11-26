@@ -1,13 +1,40 @@
 import type { Metadata } from "next";
 import { Cpu, HardDrive, Terminal } from "lucide-react";
-import { Header, Footer, PreviewNotice } from "@cloud/components/ui";
-import { VpsCatalog } from "@cloud/components/catalog";
+import { Header, Footer } from "@cloud/components/ui";
+import { VpsCatalog, type PublicVpsPlan } from "@cloud/components/catalog";
 import { currentUser } from "@cloud/lib/auth";
+import {
+  TIMEWEB_LOCATION_LABELS,
+  getVpsCatalogData,
+} from "@cloud/lib/catalog-service";
 export const metadata: Metadata = { title: "VPS-серверы" };
 export default async function VpsPage() {
+  const [user, catalog] = await Promise.all([
+    currentUser(),
+    getVpsCatalogData(),
+  ]);
+  const live = catalog.source !== "fallback";
+  const featuredPlans: PublicVpsPlan[] | undefined = live
+    ? catalog.presets.slice(0, 4).map((p, index) => ({
+        id: String(p.id),
+        name: p.description_short || `VPS ${p.cpu} vCPU`,
+        description: p.description || "NVMe-диск, публичный IPv4 и управление из кабинета",
+        price: p.retailPrice,
+        cpu: p.cpu,
+        ram: Math.max(1, Math.round(p.ram / 1024)),
+        disk: Math.max(1, Math.round(p.disk / 1024)),
+        ...(index === 1 ? { popular: true } : {}),
+      }))
+    : undefined;
+  const availableLocations = live
+    ? catalog.locations.map((l) => ({
+        id: l.location,
+        label: TIMEWEB_LOCATION_LABELS[l.location] || l.location,
+      }))
+    : undefined;
   return (
     <>
-      <Header signedIn={Boolean(await currentUser())} />
+      <Header signedIn={Boolean(user)} />
       <main id="main" className="wrap catalog-page">
         <div className="page-intro">
           <p className="eyebrow eyebrow-hero">kernell cloud · VPS-серверы</p>
@@ -22,8 +49,11 @@ export default async function VpsPage() {
             Выберите ресурсы — остальное соберём в одном кабинете.
           </p>
         </div>
-        <PreviewNotice />
-        <VpsCatalog />
+        <VpsCatalog
+          availableLocations={availableLocations}
+          featuredPlans={featuredPlans}
+          liveCatalog={live}
+        />
         <div className="product-details">
           <article>
             <Cpu />
@@ -51,18 +81,20 @@ export default async function VpsPage() {
           </article>
         </div>
         <details className="faq-item">
-          <summary>Когда можно будет купить сервер?</summary>
+          <summary>Как быстро создаётся сервер после оплаты?</summary>
           <p>
-            Сейчас открыт предварительный просмотр. Можно создать аккаунт и
-            сохранить заказ. Оплату включим после запуска сервиса.
+            После пополнения баланса и оплаты заказа в личном кабинете сервер
+            автоматически ставится на установку ОС и обычно готов через 1–2
+            минуты. Доступ по SSH и root-пароль сразу появляются в карточке
+            сервера.
           </p>
         </details>
         <details className="faq-item">
           <summary>Что входит в стоимость?</summary>
           <p>
-            Это предварительные конфигурации и цены. Перед открытием продаж в
-            каждом тарифе будет указан полный состав, включая IPv4, трафик и
-            дополнительные услуги.
+            Выделенные vCPU, RAM, NVMe-диск, публичный IPv4-адрес, базовая
+            пропускная способность и круглосуточное управление питанием,
+            бэкапами и переустановкой ОС.
           </p>
         </details>
       </main>

@@ -9,18 +9,20 @@ export default async function DashboardPage({
   searchParams,
 }: {
   params: Promise<{ section?: string[] }>;
-  searchParams: Promise<{ create?: string }>;
+  searchParams: Promise<{ create?: string; payment?: string }>;
 }) {
   const user = await requireUser();
   const segments = (await params).section || [];
   const section = segments[0] || "overview";
   if (segments.length > 1 || !sections.includes(section as Section)) notFound();
+  const query = await searchParams;
   return (
     <Dashboard
       key={section}
       initial={accountFor(user)}
       section={section as Section}
-      initialCreate={(await searchParams).create}
+      initialCreate={query.create}
+      initialPaymentId={query.payment}
     />
   );
 }

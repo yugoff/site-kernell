@@ -1,5 +1,4 @@
 import { randomUUID } from "node:crypto";
-import { domainToASCII } from "node:url";
 import {
   ApiError,
   apiError,
@@ -8,10 +7,26 @@ import {
   jsonBody,
   rateLimit,
 } from "@cloud/lib/auth";
+import type { ServiceKind } from "@cloud/lib/catalog";
 import { db, logActivity, transaction } from "@cloud/lib/database";
-import { locations, operatingSystems, plans, zones } from "@cloud/lib/catalog";
+import {
+  resolveDomainOrderSpec,
+  resolveInfraOrderSpec,
+  resolveVpsOrderSpec,
+} from "@cloud/lib/order-pricing";
 
 export const runtime = "nodejs";
+const PAID_INFRA_KINDS = new Set<ServiceKind>([
+  "database",
+  "s3",
+  "k8s",
+  "balancer",
+  "router",
+  "network_drive",
+  "cdn",
+  "floating_ip",
+]);
+
 export async function POST(request: Request) {
   try {
     checkOrigin(request);
@@ -21,46 +36,26 @@ export async function POST(request: Request) {
     const key = typeof body.requestKey === "string" ? body.requestKey : "";
     if (!/^[\w-]{10,80}$/.test(key))
       throw new ApiError(400, "Обновите форму заказа.");
-    let title: string;
-    let amount: number;
+
+    let spec;
     if (body.kind === "vps") {
-      const plan = plans.find((item) => item.id === body.plan);
-      const name = typeof body.name === "string" ? body.name.trim() : "";
-      if (
-        !plan ||
-        !/^[a-zA-Z0-9][a-zA-Z0-9-]{1,47}$/.test(name) ||
-        !operatingSystems.includes(String(body.os)) ||
-        !locations.includes(String(body.location))
-      )
-        throw new ApiError(
-          400,
-          "Проверьте параметры сервера. Имя: 2–48 латинских букв, цифр или дефисов.",
-        );
-      title = `VPS ${name} · ${plan.name} · ${body.os} · ${body.location}`;
-      amount = plan.price;
+      spec = await resolveVpsOrderSpec(user.id, body);
     } else if (body.kind === "domain") {
-      const name =
-        typeof body.name === "string" ? body.name.trim().toLowerCase() : "";
-      const zone = zones.find((item) => name.endsWith(`.${item.zone}`));
-      const ascii = domainToASCII(name);
-      if (
-        !zone ||
-        !ascii ||
-        ascii.length > 253 ||
-        ascii.split(".").length !== 2 ||
-        !ascii
-          .split(".")
-          .every((label) =>
-            /^[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?$/.test(label),
-          )
-      )
-        throw new ApiError(
-          400,
-          "Введите корректный домен в зоне .ru, .рф, .com или .net.",
-        );
-      title = `Домен ${name} · регистрация на 1 год`;
-      amount = zone.registration;
-    } else throw new ApiError(400, "Выберите услугу.");
+      spec = await resolveDomainOrderSpec(user.id, body);
+    } else if (
+      typeof body.kind === "string" &&
+      PAID_INFRA_KINDS.has(body.kind as ServiceKind)
+    ) {
+      spec = await resolveInfraOrderSpec(
+        user.id,
+        body.kind as ServiceKind,
+        body,
+      );
+    } else {
+      throw new ApiError(400, "Выберите услугу.");
+    }
+
+    const nowIso = new Date().toISOString();
     const orderId = transaction(() => {
       const previous = db()
         .prepare("SELECT id FROM orders WHERE user_id=? AND request_key=?")
@@ -69,19 +64,66 @@ export async function POST(request: Request) {
       const id = randomUUID();
       db()
         .prepare(
-          "INSERT INTO orders (id,user_id,title,amount,created,status,request_key) VALUES (?,?,?,?,?,'draft',?)",
+          "INSERT INTO orders (id,user_id,title,amount,created,status,request_key,kind,cost_amount,retail_amount,provider_payload,updated_at) VALUES (?,?,?,?,?,'draft',?,?,?,?,?,?)",
         )
-        .run(id, user.id, title, amount, new Date().toISOString(), key);
-      logActivity(user.id, `Сохранён заказ: ${title}`);
+        .run(
+          id,
+          user.id,
+          spec.title,
+          spec.retailAmount,
+          nowIso,
+          key,
+          spec.kind,
+          spec.costAmount,
+          spec.retailAmount,
+          JSON.stringify(spec.payload),
+          nowIso,
+        );
+      logActivity(user.id, `Сохранён заказ: ${spec.title}`);
       return id;
     });
-    // No payment or provider request can be triggered by a draft order.
+
     return Response.json({
       id: orderId,
       status: "draft",
-      message:
-        "Заказ сохранён. Оплата и выдача услуг будут доступны после запуска.",
+      amount: spec.retailAmount,
+      message: "Заказ сохранён. Его можно оплатить с баланса в разделе «Заказы».",
     });
+  } catch (error) {
+    return apiError(error);
+  }
+}
+
+const DELETABLE_ORDER_STATUSES = new Set(["draft", "demo", "failed"]);
+
+export async function DELETE(request: Request) {
+  try {
+    checkOrigin(request);
+    const user = await apiUser();
+    rateLimit(`orders-delete:${user.id}`, 30);
+    const id = new URL(request.url).searchParams.get("id")?.trim() || "";
+    if (!id || id.length > 80) throw new ApiError(400, "Укажите заказ.");
+
+    transaction(() => {
+      const existing = db()
+        .prepare("SELECT id,title,status FROM orders WHERE id=? AND user_id=?")
+        .get(id, user.id) as
+        | { id: string; title: string; status: string }
+        | undefined;
+      if (!existing) throw new ApiError(404, "Заказ не найден.");
+      if (!DELETABLE_ORDER_STATUSES.has(existing.status)) {
+        throw new ApiError(
+          409,
+          "Оплаченный или выполняемый заказ нельзя удалить.",
+        );
+      }
+      db()
+        .prepare("DELETE FROM orders WHERE id=? AND user_id=?")
+        .run(existing.id, user.id);
+      logActivity(user.id, `Удалён заказ: ${existing.title}`);
+    });
+
+    return Response.json({ deleted: true, id });
   } catch (error) {
     return apiError(error);
   }

@@ -9,7 +9,7 @@ export function authDestination(
     return `/dashboard/servers?create=${query.plan}`;
   if (
     typeof query.next === "string" &&
-    /^\/dashboard(?:\/(?:servers|domains|orders|billing|settings|support))?(?:\?create=(?:start|project|business|scale))?$/.test(
+    /^\/dashboard(?:\/(?:servers|domains|infra|orders|billing|settings|support))?(?:\?create=(?:start|project|business|scale))?$/.test(
       query.next,
     )
   )

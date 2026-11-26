@@ -1,4 +1,123 @@
 /* Shared brand dimensions from kernell.ru; Cloud keeps its own composition. */
+:root {
+  --header-h: 64px;
+}
+
+.cloud-home > :is(.hero, .plans-section) {
+  display: grid;
+  align-content: center;
+  /* Leave room for the sticky header, including its bottom border. */
+  min-block-size: calc(100svh - var(--header-h) - 1px);
+}
+
+@media (min-width: 1100px) {
+  .cloud-home > .plans-section {
+    padding-block: clamp(40px, 5svh, 95px);
+  }
+}
+
+.plan-scroll-dots {
+  display: none;
+}
+
+@media (max-width: 760px) {
+  .cloud-home > .plans-section {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .plan-grid-mobile,
+  .dashboard .plan-grid.plan-grid-mobile {
+    --plan-gutter: clamp(20px, 4vw, 48px);
+    display: flex;
+    gap: 14px;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scroll-snap-type: x mandatory;
+    scroll-padding-inline: var(--plan-gutter);
+    margin-inline: calc(-1 * var(--plan-gutter));
+    padding: 6px var(--plan-gutter);
+    scrollbar-width: none;
+    outline-offset: -2px;
+  }
+
+  .dashboard .plan-grid.plan-grid-mobile {
+    --plan-gutter: 20px;
+  }
+
+  .plan-grid-mobile::-webkit-scrollbar {
+    display: none;
+  }
+
+  .plan-grid-mobile .plan-card,
+  .dashboard .plan-grid-mobile .plan-card {
+    flex: 0 0 84%;
+    min-width: 0;
+    padding: 25px 20px 20px;
+    scroll-snap-align: start;
+  }
+
+  .plan-grid-mobile .plan-card:last-child,
+  .dashboard .plan-grid-mobile .plan-card:last-child {
+    scroll-snap-align: end;
+  }
+
+  .plan-grid-mobile .plan-description {
+    min-height: 3.3em;
+  }
+
+  .plan-grid-mobile .plan-specs p,
+  .dashboard .plan-grid-mobile .plan-specs p {
+    display: flex;
+  }
+
+  .plan-grid-mobile .plan-specs span,
+  .dashboard .plan-grid-mobile .plan-specs span {
+    text-align: right;
+  }
+
+  .plan-scroll-dots {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-top: 12px;
+    color: var(--muted);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+
+  .dashboard .plan-scroll-dots {
+    margin-bottom: 12px;
+  }
+
+  .plan-scroll-track {
+    display: flex;
+    gap: 6px;
+  }
+
+  .plan-scroll-track i {
+    width: 6px;
+    height: 6px;
+    border-radius: 3px;
+    background: #b9a9a6;
+    transition: width 200ms var(--ease-out);
+  }
+
+  .plan-scroll-track i.is-active {
+    width: 18px;
+    background: var(--accent);
+  }
+
+  .plan-scroll-hint {
+    margin-left: auto;
+  }
+}
+
+@media (max-width: 420px) {
+  .dashboard .plan-grid.plan-grid-mobile {
+    --plan-gutter: 15px;
+  }
+}
+
 /* Main-site primary actions use the same pill shape and type scale. */
 .hero-actions .button,
 .workspace-grid .demo-entry > .button,
@@ -27,6 +146,91 @@
   border-color: var(--ink);
 }
 
+/* Match the main site's softer surfaces and pill buttons on the storefront. */
+.site-header + main :is(.domain-search-form, .domain-results, .domain-recommendation, .plan-card) {
+  border-color: var(--rule);
+  border-radius: var(--radius-md);
+}
+
+.site-header + main .plan-card.featured {
+  border-color: #d1b4bc;
+  box-shadow: none;
+}
+
+.site-header + main .plan-recommendation {
+  background: var(--accent-light);
+  color: var(--accent);
+  border-radius: var(--radius-md) var(--radius-md) 0 0;
+}
+
+.site-header + main :is(.domain-search-form, .domain-result, .domain-recommendation-footer, .plan-card) .button {
+  border-radius: 999px;
+  transition: background 200ms var(--ease-out), border-color 200ms var(--ease-out);
+}
+
+.site-header + main :is(.domain-search-form, .plan-card) .button-accent {
+  border-color: var(--ink);
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.site-header + main :is(.domain-search-form, .plan-card) .button-accent:hover:not(:disabled) {
+  border-color: var(--accent);
+  background: var(--accent);
+}
+
+.domain-section {
+  --domain-accent-on-ink: #e3a0ab;
+  background: var(--ink);
+  color: var(--paper);
+}
+
+.domain-section .eyebrow,
+.domain-section h2 em,
+.domain-section .domain-search-form > svg,
+.domain-section .field-error {
+  color: var(--domain-accent-on-ink);
+}
+
+.domain-section .section-heading > p:not(.eyebrow),
+.domain-section .domain-zone-list > span > span,
+.domain-section .domain-search-form input::placeholder {
+  color: #c5b9bb;
+}
+
+.site-header + main .domain-section .domain-search-form {
+  border-color: #625559;
+}
+
+.domain-section .domain-search-form input {
+  color: var(--paper);
+}
+
+.domain-section .domain-search-form input:is(:autofill, :-webkit-autofill) {
+  -webkit-text-fill-color: var(--paper);
+  caret-color: var(--paper);
+}
+
+.domain-section .domain-search-form:has(input:focus-visible),
+.domain-section .domain-search-form .button:focus-visible {
+  outline-color: var(--domain-accent-on-ink);
+}
+
+.site-header + main .domain-section .domain-search-form .button-accent {
+  border-color: var(--paper);
+  background: var(--paper);
+  color: var(--ink);
+}
+
+.site-header + main .domain-section .domain-search-form .button-accent:hover:not(:disabled) {
+  border-color: var(--accent-light);
+  background: var(--accent-light);
+}
+
+.domain-section :is(.domain-results, .domain-recommendation) {
+  color: var(--ink);
+}
+
 .site-header {
   height: auto;
   position: sticky;
@@ -38,7 +242,7 @@
 }
 
 .site-header .header-inner {
-  height: 64px;
+  height: var(--header-h);
   justify-content: space-between;
   gap: 24px;
 }

@@ -9,3 +9,6 @@ brag-output/
 cloud/.data/
 cloud/.env*
 !cloud/.env.example
+/.env
+CLAUDE.md
+out-chess

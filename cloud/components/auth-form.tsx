@@ -97,7 +97,14 @@ export function AuthForm({
               />
             </label>
             <label className="field">
-              Пароль
+              <span className="field-label-row">
+                <span>Пароль</span>
+                {!register && (
+                  <Link href="/reset-password" className="field-inline-link">
+                    Забыли пароль?
+                  </Link>
+                )}
+              </span>
               <div className="password-input">
                 <input
                   name="password"

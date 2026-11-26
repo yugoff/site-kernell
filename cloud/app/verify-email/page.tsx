@@ -1,0 +1,15 @@
+import type { Metadata } from "next";
+import { VerifyEmailCard } from "@cloud/components/verify-email-card";
+
+export const metadata: Metadata = { title: "Подтверждение email" };
+
+export default async function VerifyEmailPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
+  const params = await searchParams;
+  const token = typeof params.token === "string" ? params.token : undefined;
+  return <VerifyEmailCard token={token} />;
+}
+

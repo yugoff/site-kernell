@@ -1,8 +1,16 @@
 "use client";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import {
+  useEffect,
+  useId,
+  useMemo,
+  useRef,
+  useState,
+  type KeyboardEvent,
+  type ReactNode,
+} from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
-import { Menu, X, LoaderCircle } from "lucide-react";
+import { Check, ChevronDown, Menu, Search, X, LoaderCircle } from "lucide-react";
 
 export function Logo({ light = false }: { light?: boolean }) {
   return (
@@ -93,9 +101,14 @@ export function Footer() {
     </footer>
   );
 }
-export async function api(path: string, body?: unknown) {
+export async function api(
+  path: string,
+  body?: unknown,
+  method?: "GET" | "POST" | "DELETE" | "PATCH",
+) {
+  const httpMethod = method ?? (body === undefined ? "GET" : "POST");
   const response = await fetch(path, {
-    method: body === undefined ? "GET" : "POST",
+    method: httpMethod,
     headers: body === undefined ? {} : { "Content-Type": "application/json" },
     body: body === undefined ? undefined : JSON.stringify(body),
     cache: "no-store",
@@ -141,6 +154,20 @@ export function DemoButton({
     </span>
   );
 }
+export function clientUuid(): string {
+  if (typeof crypto !== "undefined") {
+    if (typeof crypto.randomUUID === "function") return crypto.randomUUID();
+    if (typeof crypto.getRandomValues === "function") {
+      const bytes = new Uint8Array(16);
+      crypto.getRandomValues(bytes);
+      bytes[6] = (bytes[6] & 0x0f) | 0x40;
+      bytes[8] = (bytes[8] & 0x3f) | 0x80;
+      const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, "0"));
+      return `${hex.slice(0, 4).join("")}-${hex.slice(4, 6).join("")}-${hex.slice(6, 8).join("")}-${hex.slice(8, 10).join("")}-${hex.slice(10, 16).join("")}`;
+    }
+  }
+  return `${Date.now().toString(16)}-${Math.random().toString(16).slice(2, 14)}`;
+}
 export function Modal({
   title,
   children,
@@ -154,14 +181,19 @@ export function Modal({
   const closer = useRef(close);
   closer.current = close;
   useEffect(() => {
-    const element = ref.current!;
-    const previous = document.activeElement as HTMLElement;
-    element.showModal();
-    const onClose = () => closer.current();
+    const element = ref.current;
+    if (!element) return;
+    const previous = document.activeElement as HTMLElement | null;
+    if (!element.open) element.showModal();
+    const onClose = () => {
+      // StrictMode cleanup calls element.close(), which queues an async 'close'
+      // task that lands after remount re-opens the dialog; ignore unless still closed.
+      if (!element.open) closer.current();
+    };
     element.addEventListener("close", onClose);
     return () => {
       element.removeEventListener("close", onClose);
-      element.close();
+      if (element.open) element.close();
       previous?.focus();
     };
   }, []);
@@ -196,13 +228,266 @@ export function Modal({
     </dialog>
   );
 }
-export function PreviewNotice() {
+
+export type SelectOption = {
+  value: string;
+  label: string;
+  meta?: string;
+  badge?: string;
+};
+
+export function SelectField({
+  label,
+  value,
+  options,
+  onChange,
+  disabled = false,
+  placeholder = "Выберите…",
+  searchPlaceholder = "Быстрый поиск…",
+  ariaLabel,
+  className = "",
+}: {
+  label?: string;
+  value: string;
+  options: SelectOption[];
+  onChange: (value: string) => void;
+  disabled?: boolean;
+  placeholder?: string;
+  searchPlaceholder?: string;
+  ariaLabel?: string;
+  className?: string;
+}) {
+  const [open, setOpen] = useState(false);
+  const [openUp, setOpenUp] = useState(false);
+  const [search, setSearch] = useState("");
+  const [highlighted, setHighlighted] = useState(0);
+  const labelId = useId();
+  const listId = useId();
+  const wrapRef = useRef<HTMLDivElement>(null);
+  const triggerRef = useRef<HTMLButtonElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
+
+  const selected = useMemo(
+    () => options.find((opt) => opt.value === value) ?? null,
+    [options, value],
+  );
+
+  const visible = useMemo(() => {
+    const q = search.trim().toLowerCase();
+    if (!q) return options;
+    return options.filter(
+      (opt) =>
+        opt.label.toLowerCase().includes(q) ||
+        (opt.meta && opt.meta.toLowerCase().includes(q)) ||
+        (opt.badge && opt.badge.toLowerCase().includes(q)),
+    );
+  }, [options, search]);
+
+  function openMenu() {
+    if (disabled || !options.length) return;
+    if (wrapRef.current) {
+      const rect = wrapRef.current.getBoundingClientRect();
+      const dialog = wrapRef.current.closest("dialog");
+      const bounds = dialog ? dialog.getBoundingClientRect() : null;
+      const topLimit = bounds ? bounds.top : 0;
+      const bottomLimit = bounds ? bounds.bottom : window.innerHeight;
+      const spaceBelow = bottomLimit - rect.bottom;
+      const spaceAbove = rect.top - topLimit;
+      setOpenUp(spaceBelow < 250 && spaceAbove > spaceBelow);
+    }
+    setSearch("");
+    const currentIdx = options.findIndex((opt) => opt.value === value);
+    setHighlighted(currentIdx >= 0 ? currentIdx : 0);
+    setOpen(true);
+  }
+
+  function closeMenu(restoreFocus = false) {
+    setOpen(false);
+    setSearch("");
+    if (restoreFocus) triggerRef.current?.focus();
+  }
+
+  function choose(optionValue: string) {
+    onChange(optionValue);
+    closeMenu(true);
+  }
+
+  useEffect(() => {
+    if (!open) return;
+    const frame = requestAnimationFrame(() => {
+      const active = menuRef.current?.querySelector('[aria-selected="true"]');
+      if (active instanceof HTMLElement) {
+        active.scrollIntoView({ block: "nearest" });
+      }
+    });
+    const onPointerDown = (event: PointerEvent) => {
+      if (wrapRef.current && !wrapRef.current.contains(event.target as Node)) {
+        closeMenu(false);
+      }
+    };
+    const onDocKeyDown = (event: globalThis.KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        event.stopPropagation();
+        closeMenu(true);
+      }
+    };
+    document.addEventListener("pointerdown", onPointerDown);
+    document.addEventListener("keydown", onDocKeyDown, true);
+    return () => {
+      cancelAnimationFrame(frame);
+      document.removeEventListener("pointerdown", onPointerDown);
+      document.removeEventListener("keydown", onDocKeyDown, true);
+    };
+  }, [open]);
+
+  function onKeyDown(event: KeyboardEvent<HTMLDivElement>) {
+    if (!open) {
+      if (
+        event.key === "ArrowDown" ||
+        event.key === "ArrowUp" ||
+        event.key === "Enter" ||
+        event.key === " "
+      ) {
+        event.preventDefault();
+        openMenu();
+      }
+      return;
+    }
+    if (event.key === "ArrowDown") {
+      event.preventDefault();
+      if (visible.length) {
+        setHighlighted((prev) => (prev + 1) % visible.length);
+      }
+    } else if (event.key === "ArrowUp") {
+      event.preventDefault();
+      if (visible.length) {
+        setHighlighted((prev) => (prev - 1 + visible.length) % visible.length);
+      }
+    } else if (event.key === "Enter") {
+      const target = event.target as HTMLElement;
+      if (target.tagName === "INPUT" && visible.length) {
+        event.preventDefault();
+        choose(visible[Math.min(highlighted, visible.length - 1)].value);
+      } else if (target === triggerRef.current && visible.length) {
+        event.preventDefault();
+        choose(visible[Math.min(highlighted, visible.length - 1)].value);
+      }
+    }
+  }
+
   return (
-    <div className="preview-notice">
-      <span className="tag">ранний доступ</span>
-      <span>
-        Знакомимся с Cloud. Тарифы предварительные, оплата пока недоступна.
-      </span>
+    <div className={`field select-field ${className}`.trim()}>
+      {label && (
+        <span
+          id={labelId}
+          className="field-label"
+          onClick={() => {
+            if (!disabled) {
+              triggerRef.current?.focus();
+              if (open) closeMenu(false);
+              else openMenu();
+            }
+          }}
+        >
+          {label}
+        </span>
+      )}
+      <div
+        ref={wrapRef}
+        className={`custom-select ${open ? "is-open" : ""}`}
+        onKeyDown={onKeyDown}
+      >
+        <button
+          ref={triggerRef}
+          type="button"
+          className="select-trigger"
+          role="combobox"
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          aria-controls={open ? listId : undefined}
+          aria-labelledby={label ? labelId : undefined}
+          aria-label={!label ? ariaLabel : undefined}
+          disabled={disabled || !options.length}
+          onClick={() => (open ? closeMenu(false) : openMenu())}
+        >
+          <span className="select-trigger-text">
+            <span className="select-trigger-label">
+              {selected ? selected.label : placeholder}
+            </span>
+            {selected?.meta && (
+              <span className="select-trigger-meta mono">{selected.meta}</span>
+            )}
+          </span>
+          {selected?.badge && (
+            <span className="select-trigger-badge mono">{selected.badge}</span>
+          )}
+          <ChevronDown size={16} className="select-chevron" aria-hidden="true" />
+        </button>
+        {open && (
+          <div
+            ref={menuRef}
+            id={listId}
+            className={`select-menu ${openUp ? "open-up" : ""}`}
+            role="listbox"
+            aria-labelledby={label ? labelId : undefined}
+          >
+            {options.length >= 10 && (
+              <div className="select-search">
+                <Search size={14} aria-hidden="true" />
+                <input
+                  type="text"
+                  value={search}
+                  onChange={(e) => {
+                    setSearch(e.target.value);
+                    setHighlighted(0);
+                  }}
+                  placeholder={searchPlaceholder}
+                  autoComplete="off"
+                />
+              </div>
+            )}
+            <div className="select-options">
+              {visible.length > 0 ? (
+                visible.map((opt, idx) => {
+                  const isSelected = opt.value === value;
+                  const isHighlighted = idx === highlighted;
+                  return (
+                    <button
+                      key={opt.value}
+                      type="button"
+                      role="option"
+                      aria-selected={isSelected}
+                      className={`select-option ${isSelected ? "is-selected" : ""} ${isHighlighted ? "is-highlighted" : ""}`.trim()}
+                      onMouseEnter={() => setHighlighted(idx)}
+                      onClick={() => choose(opt.value)}
+                    >
+                      <span className="select-option-main">
+                        <strong>{opt.label}</strong>
+                        {opt.meta && (
+                          <small className="mono">{opt.meta}</small>
+                        )}
+                      </span>
+                      <span className="select-option-aside">
+                        {opt.badge && (
+                          <span className="select-option-badge mono">
+                            {opt.badge}
+                          </span>
+                        )}
+                        {isSelected && (
+                          <Check size={15} className="select-option-check" aria-hidden="true" />
+                        )}
+                      </span>
+                    </button>
+                  );
+                })
+              ) : (
+                <div className="select-empty">Ничего не найдено</div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

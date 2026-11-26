@@ -35,12 +35,15 @@ export function publicUser(row: {
   name: string;
   email: string;
   demo: number;
+  email_verified_at?: number | null;
 }): User {
+  const demo = Boolean(row.demo);
   return {
     id: row.id,
     name: row.name,
-    email: row.demo ? "demo@example.invalid" : row.email,
-    demo: Boolean(row.demo),
+    email: demo ? "demo@example.invalid" : row.email,
+    demo,
+    emailVerified: demo || Boolean(row.email_verified_at),
   };
 }
 
@@ -49,10 +52,17 @@ export async function currentUser(): Promise<User | null> {
   if (!token || token.length > 100) return null;
   const row = db()
     .prepare(
-      "SELECT u.id,u.name,u.email,u.demo FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?",
+      "SELECT u.id,u.name,u.email,u.demo,u.email_verified_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?",
     )
     .get(tokenHash(token), Date.now()) as
-    { id: string; name: string; email: string; demo: number } | undefined;
+    | {
+        id: string;
+        name: string;
+        email: string;
+        demo: number;
+        email_verified_at: number | null;
+      }
+    | undefined;
   return row ? publicUser(row) : null;
 }
 
@@ -102,9 +112,17 @@ export class ApiError extends Error {
 }
 
 export function checkOrigin(request: Request) {
+  const origin = request.headers.get("origin");
   const expected = process.env.CLOUD_ORIGIN || new URL(request.url).origin;
-  if (request.headers.get("origin") !== expected)
-    throw new ApiError(403, "Обновите страницу и повторите действие.");
+  if (origin === expected) return;
+  // Next dev may put localhost in request.url even when the browser uses 127.0.0.1.
+  if (process.env.NODE_ENV === "development" && origin) {
+    const local = URL.parse(origin);
+    if (local?.protocol === "http:" &&
+        (local.hostname === "localhost" || local.hostname === "127.0.0.1") &&
+        local.host === request.headers.get("host") && local.origin === origin) return;
+  }
+  throw new ApiError(403, "Обновите страницу и повторите действие.");
 }
 
 export async function jsonBody(

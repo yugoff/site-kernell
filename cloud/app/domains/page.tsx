@@ -1,13 +1,19 @@
 import type { Metadata } from "next";
-import { Header, Footer, PreviewNotice } from "@cloud/components/ui";
+import { Header, Footer } from "@cloud/components/ui";
 import { DomainSearch } from "@cloud/components/catalog";
 import { currentUser } from "@cloud/lib/auth";
-import { money, zones } from "@cloud/lib/catalog";
+import { money } from "@cloud/lib/catalog";
+import { getDomainZonesCatalog } from "@cloud/lib/catalog-service";
 export const metadata: Metadata = { title: "Домены" };
 export default async function DomainsPage() {
+  const [user, catalog] = await Promise.all([
+    currentUser(),
+    getDomainZonesCatalog(),
+  ]);
+  const displayedZones = catalog.zones.slice(0, 12);
   return (
     <>
-      <Header signedIn={Boolean(await currentUser())} />
+      <Header signedIn={Boolean(user)} />
       <main id="main" className="wrap catalog-page">
         <div className="page-intro">
           <p className="eyebrow eyebrow-hero">kernell cloud · домены</p>
@@ -22,8 +28,7 @@ export default async function DomainsPage() {
             Регистрация, продление и настройки — в одном месте.
           </p>
         </div>
-        <PreviewNotice />
-        <DomainSearch />
+        <DomainSearch featuredZones={catalog.zones.slice(0, 4)} />
         <section className="domain-prices">
           <div className="section-heading">
             <h2>
@@ -47,7 +52,7 @@ export default async function DomainsPage() {
                 </tr>
               </thead>
               <tbody>
-                {zones.map((zone) => (
+                {displayedZones.map((zone) => (
                   <tr key={zone.zone}>
                     <td>
                       <strong className="zone-name">.{zone.zone}</strong>
@@ -60,8 +65,9 @@ export default async function DomainsPage() {
             </table>
           </div>
           <p className="pricing-note">
-            Предварительные розничные цены. Подбор пока не проверяет свободность
-            доменов.
+            {catalog.source === "fallback"
+              ? "Предварительные розничные цены. Чтобы проверить другую зону, введите домен целиком."
+              : `Розничные цены с учётом синхронизации каталога (${catalog.allPublishedCount} зон). Чтобы проверить любую зону, введите домен целиком.`}
           </p>
         </section>
         <details className="faq-item">
@@ -72,11 +78,11 @@ export default async function DomainsPage() {
           </p>
         </details>
         <details className="faq-item">
-          <summary>Можно ли управлять DNS в кабинете?</summary>
+          <summary>Можно ли управлять DNS и NS в кабинете?</summary>
           <p>
-            Интерфейс управления предусмотрен. В демокабинете можно попробовать
-            изменение NS-серверов; реальные изменения станут доступны после
-            запуска.
+            Да. В разделе «Домены» личного кабинета доступны смена NS-серверов,
+            редактор DNS-записей (A, AAAA, TXT, CNAME, MX, SRV) и управление
+            автопродлением.
           </p>
         </details>
       </main>
