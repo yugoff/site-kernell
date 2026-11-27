@@ -529,14 +529,13 @@ export function Dashboard({
               aria-label={`Баланс ${money(account.balance)}, пополнить`}
               title="Пополнить баланс"
             >
-              <Wallet size={15} aria-hidden="true" />
-              <span className="header-balance-label">Баланс</span>
-              <strong>{money(account.balance)}</strong>
-              <Plus
-                size={13}
-                aria-hidden="true"
-                className="header-balance-plus"
-              />
+              <span className="header-balance-icon" aria-hidden="true">
+                <Wallet size={15} />
+              </span>
+              <span className="header-balance-body">
+                <span className="header-balance-label">Баланс</span>
+                <strong>{money(account.balance)}</strong>
+              </span>
             </button>
             <button
               className="icon-button notification-button"

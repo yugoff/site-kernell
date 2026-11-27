@@ -1656,44 +1656,57 @@ td {
 .header-balance {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 7px 12px;
-  border: 1px solid var(--rule);
-  border-radius: 999px;
-  background: var(--paper);
+  gap: 10px;
+  border: 0;
+  background: transparent;
+  padding: 0;
+  border-radius: 7px;
   color: var(--ink);
-  font-size: 12px;
-  line-height: 1;
+  text-align: left;
   white-space: nowrap;
   flex-shrink: 0;
-  transition: border-color 180ms var(--ease-out), color 180ms var(--ease-out);
 }
-.header-balance > svg:first-child {
+.header-balance-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 31px;
+  height: 31px;
+  border-radius: 7px;
+  flex-shrink: 0;
+  background: #e9dce0;
   color: var(--accent);
+  transition: background 180ms var(--ease-out), color 180ms var(--ease-out);
+}
+.header-balance-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  line-height: 1.1;
 }
 .header-balance-label {
+  font-size: 10px;
   color: var(--muted);
 }
-.header-balance > strong {
-  font-family: var(--mono);
+.header-balance strong {
+  font-size: 13px;
   font-weight: 600;
   font-variant-numeric: tabular-nums;
-}
-.header-balance-plus {
-  color: var(--muted);
+  letter-spacing: -0.02em;
   transition: color 180ms var(--ease-out);
 }
-.header-balance:hover {
-  border-color: var(--accent);
+.header-balance:hover .header-balance-icon {
+  background: var(--accent);
+  color: var(--paper);
 }
-.header-balance:hover .header-balance-plus {
+.header-balance:hover strong {
   color: var(--accent);
 }
 .notification-button {
-  margin-right: 8px;
-  border-right: 1px solid var(--rule);
+  margin-inline: 2px;
+  border-inline: 1px solid var(--rule);
   border-radius: 0;
-  width: 45px;
+  width: 52px;
 }
 .user-control {
   display: flex;
@@ -3323,8 +3336,7 @@ td {
   .dashboard-header > div:first-child > .muted {
     display: none;
   }
-  .breadcrumb-separator,
-  .header-balance-label {
+  .breadcrumb-separator {
     display: none;
   }
   .support-grid {
@@ -3645,8 +3657,14 @@ td {
     gap: 6px !important;
   }
   .header-balance {
-    padding: 6px 10px;
-    gap: 5px;
+    gap: 8px;
+  }
+  .header-balance-icon {
+    width: 28px;
+    height: 28px;
+  }
+  .header-balance strong {
+    font-size: 12px;
   }
   .account-controls .notification-button {
     margin: 0;
@@ -4374,14 +4392,17 @@ td {
     gap: 8px;
   }
   .header-balance {
-    padding: 5px 9px;
-    gap: 4px;
+    gap: 6px;
+  }
+  .header-balance-icon {
+    width: 26px;
+    height: 26px;
+  }
+  .header-balance-label {
+    display: none;
   }
   .header-balance strong {
-    font-size: 11px;
-  }
-  .header-balance-plus {
-    display: none;
+    font-size: 12px;
   }
 }
 @media (max-width: 360px) {
