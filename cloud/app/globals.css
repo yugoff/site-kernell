@@ -1318,6 +1318,10 @@ td {
   display: flex;
   align-items: center;
 }
+.password-input:has(input:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: 4px;
+}
 .password-input input {
   border: 0;
   background: transparent;
@@ -1326,12 +1330,19 @@ td {
   border-radius: 7px;
   font-size: 14px;
 }
+.password-input input:focus-visible {
+  outline: none;
+}
 .password-input button {
   background: transparent;
   border: 0;
   display: flex;
   padding: 12px;
   color: var(--muted);
+  border-radius: 6px;
+}
+.password-input button:focus-visible {
+  outline-offset: -2px;
 }
 .checkbox-field {
   display: flex;
