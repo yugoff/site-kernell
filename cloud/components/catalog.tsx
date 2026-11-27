@@ -154,7 +154,7 @@ export function VpsCatalog({
           <SlidersHorizontal size={15} /> Фиксированные конфигурации
         </span>
       </div>
-      <PlanCards onSelect={onSelect} customPlans={featuredPlans} />
+      <PlanCards mobileCarousel onSelect={onSelect} customPlans={featuredPlans} />
       <div className="catalog-bottom">
         <span>
           <Check size={16} /> Linux на выбор

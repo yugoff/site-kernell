@@ -523,6 +523,22 @@ export function Dashboard({
           </div>
           <div className="account-controls">
             <button
+              type="button"
+              className="header-balance"
+              onClick={() => setModal("balance")}
+              aria-label={`Баланс ${money(account.balance)}, пополнить`}
+              title="Пополнить баланс"
+            >
+              <Wallet size={15} aria-hidden="true" />
+              <span className="header-balance-label">Баланс</span>
+              <strong>{money(account.balance)}</strong>
+              <Plus
+                size={13}
+                aria-hidden="true"
+                className="header-balance-plus"
+              />
+            </button>
+            <button
               className="icon-button notification-button"
               onClick={() => setModal("notifications")}
               aria-label="Открыть историю событий"
