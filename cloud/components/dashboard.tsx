@@ -1369,7 +1369,8 @@ function ProfileForm({
         </button>
       </form>
       {!account.user.demo && (
-        <section className="panel settings-form">
+        <div className="settings-side">
+          <section className="panel settings-form">
           <div className="panel-heading-inline">
             <div>
               <h2>Профили администраторов доменов</h2>
@@ -1558,14 +1559,13 @@ function ProfileForm({
               </button>
             </form>
           )}
-        </section>
-      )}
-      {!account.user.demo && (
-        <SshKeysPanel
-          sshKeys={account.sshKeys ?? []}
-          notify={notify}
-          saved={saved}
-        />
+          </section>
+          <SshKeysPanel
+            sshKeys={account.sshKeys ?? []}
+            notify={notify}
+            saved={saved}
+          />
+        </div>
       )}
     </div>
   );

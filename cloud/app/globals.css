@@ -2330,10 +2330,21 @@ td {
 }
 .settings-stack {
   display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 24px;
+  align-items: start;
+  max-width: 1224px;
+}
+.settings-stack:not(:has(.settings-side)) {
+  grid-template-columns: minmax(0, 600px);
+}
+.settings-side {
+  display: grid;
+  gap: 24px;
+  min-width: 0;
 }
 .settings-form {
-  max-width: 600px;
+  width: 100%;
   padding: 28px;
 }
 .settings-form h2 {
@@ -2394,6 +2405,13 @@ td {
   flex-wrap: wrap;
   margin-bottom: 18px;
 }
+.panel-heading-inline > div {
+  flex: 1 1 220px;
+  min-width: 0;
+}
+.panel-heading-inline > .button {
+  flex-shrink: 0;
+}
 .panel-heading-inline h2 {
   margin-bottom: 6px;
 }
@@ -2409,11 +2427,16 @@ td {
   display: flex;
   align-items: center;
   justify-content: space-between;
+  flex-wrap: wrap;
   gap: 14px;
   padding: 12px 14px;
   border: 1px solid var(--rule);
   border-radius: 8px;
   background: var(--bg);
+}
+.person-row > div {
+  min-width: 0;
+  overflow-wrap: anywhere;
 }
 .person-row strong,
 .person-row span {
@@ -3197,6 +3220,12 @@ td {
     gap: 22px;
   }
 }
+@media (max-width: 1120px) {
+  .settings-stack,
+  .settings-stack:not(:has(.settings-side)) {
+    grid-template-columns: minmax(0, 680px);
+  }
+}
 @media (max-width: 1000px) {
   .hero {
     padding-top: 60px;
@@ -3789,6 +3818,14 @@ td {
   }
   .support-card {
     padding: 25px;
+  }
+  .settings-stack,
+  .settings-stack:not(:has(.settings-side)) {
+    grid-template-columns: 1fr;
+    gap: 18px;
+  }
+  .settings-side {
+    gap: 18px;
   }
   .settings-form {
     padding: 23px;
