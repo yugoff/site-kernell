@@ -66,12 +66,11 @@ export async function POST(request: Request) {
 
     if (!timewebToken())
       throw new ApiError(503, "Проверка доменов пока недоступна.");
-    rateLimit("domains:check", 60, 60_000);
+    await rateLimit("domains:check", 60, 60_000);
 
-    const [{ tlds }, catalog] = await Promise.all([
-      getPublishedTldsRaw(),
-      getDomainZonesCatalog(),
-    ]);
+    const publishedCatalog = await getPublishedTldsRaw();
+    const { tlds } = publishedCatalog;
+    const catalog = await getDomainZonesCatalog(publishedCatalog);
     const published = tlds.length
       ? new Set(
           tlds

@@ -1,4 +1,5 @@
 import { createHash, randomUUID } from "node:crypto";
+import { salesEnabled } from "@cloud/lib/sales";
 import {
   ApiError,
   apiError,
@@ -10,9 +11,9 @@ import {
 import {
   db,
   listSshKeysForUser,
-  logActivity,
-  logAudit,
-  transaction,
+  batch,
+  activityStatement,
+  auditStatement,
 } from "@cloud/lib/database";
 import {
   TimewebApiError,
@@ -59,7 +60,7 @@ export async function GET() {
   try {
     const user = await apiUser();
     return Response.json(
-      { sshKeys: user.demo ? [] : listSshKeysForUser(user.id) },
+      { sshKeys: user.demo ? [] : await listSshKeysForUser(user.id) },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
@@ -77,7 +78,7 @@ export async function POST(request: Request) {
         "В демокабинете нельзя сохранять SSH-ключи.",
       );
     }
-    rateLimit(`ssh-keys:${user.id}`, 20);
+    await rateLimit(`ssh-keys:${user.id}`, 20);
     const body = await jsonBody(request);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (name.length < 2 || name.length > 80) {
@@ -85,7 +86,7 @@ export async function POST(request: Request) {
     }
     const { normalized, fingerprint } = parsePublicKey(body.publicKey);
 
-    const existing = db()
+    const existing = await db()
       .prepare("SELECT id FROM ssh_keys WHERE user_id=? AND fingerprint=?")
       .get(user.id, fingerprint) as { id: string } | undefined;
     if (existing) {
@@ -93,7 +94,7 @@ export async function POST(request: Request) {
     }
 
     let twSshKeyId: number | null = null;
-    if (timewebToken()) {
+    if (salesEnabled() && timewebToken()) {
       try {
         const created = await createTimewebSshKey(
           `kc-${user.id.slice(0, 8)}-${name.slice(0, 36)}`,
@@ -114,18 +115,18 @@ export async function POST(request: Request) {
 
     const id = randomUUID();
     const now = Date.now();
-    transaction(() => {
+    await batch(
       db()
         .prepare(
           "INSERT INTO ssh_keys (id,user_id,name,fingerprint,public_key,tw_ssh_key_id,created_at) VALUES (?,?,?,?,?,?,?)",
         )
-        .run(id, user.id, name, fingerprint, normalized, twSshKeyId, now);
-      logActivity(user.id, `Добавлен SSH-ключ: ${name}`);
-      logAudit(user.id, "ssh_key.create", "ssh_key", id, {
+        .bind(id, user.id, name, fingerprint, normalized, twSshKeyId, now),
+      activityStatement(user.id, `Добавлен SSH-ключ: ${name}`),
+      auditStatement(user.id, "ssh_key.create", "ssh_key", id, {
         fingerprint,
         twSshKeyId,
-      });
-    });
+      }),
+    );
 
     return Response.json({
       sshKey: {
@@ -148,12 +149,12 @@ export async function DELETE(request: Request) {
     if (user.demo) {
       throw new ApiError(400, "В демокабинете SSH-ключи недоступны.");
     }
-    rateLimit(`ssh-keys:${user.id}`, 30);
+    await rateLimit(`ssh-keys:${user.id}`, 30);
     const url = new URL(request.url);
     const id = url.searchParams.get("id")?.trim() || "";
     if (!id) throw new ApiError(400, "Не указан идентификатор SSH-ключа.");
 
-    const existing = db()
+    const existing = await db()
       .prepare(
         "SELECT id,name,tw_ssh_key_id FROM ssh_keys WHERE id=? AND user_id=?",
       )
@@ -172,13 +173,13 @@ export async function DELETE(request: Request) {
       }
     }
 
-    transaction(() => {
+    await batch(
       db()
         .prepare("DELETE FROM ssh_keys WHERE id=? AND user_id=?")
-        .run(id, user.id);
-      logActivity(user.id, `Удалён SSH-ключ: ${existing.name}`);
-      logAudit(user.id, "ssh_key.delete", "ssh_key", id);
-    });
+        .bind(id, user.id),
+      activityStatement(user.id, `Удалён SSH-ключ: ${existing.name}`),
+      auditStatement(user.id, "ssh_key.delete", "ssh_key", id),
+    );
 
     return Response.json({ ok: true });
   } catch (error) {

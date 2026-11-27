@@ -19,7 +19,7 @@ export default async function DashboardPage({
   return (
     <Dashboard
       key={section}
-      initial={accountFor(user)}
+      initial={await accountFor(user)}
       section={section as Section}
       initialCreate={query.create}
       initialPaymentId={query.payment}

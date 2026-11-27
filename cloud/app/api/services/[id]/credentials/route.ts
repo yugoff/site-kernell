@@ -19,13 +19,13 @@ export async function POST(
     checkOrigin(request);
     const user = await apiUser();
     const { id } = await context.params;
-    rateLimit(`service-creds:${user.id}`, 30);
+    await rateLimit(`service-creds:${user.id}`, 30);
 
     if (user.demo) {
       throw new ApiError(400, "В демокабинете реальные пароли не хранятся.");
     }
 
-    const service = db()
+    const service = await db()
       .prepare(
         "SELECT id,kind,tw_resource_id FROM services WHERE id=? AND user_id=?",
       )
@@ -40,7 +40,7 @@ export async function POST(
       throw new ApiError(404, "Услуга не найдена или не содержит учётных данных.");
     }
 
-    let creds = readServiceCredentials(id, user.id);
+    let creds = await readServiceCredentials(id, user.id);
     const missingForKind =
       (service.kind === "vps" && !creds?.rootPass) ||
       (service.kind === "s3" && (!creds?.s3AccessKey || !creds?.s3SecretKey)) ||
@@ -48,10 +48,10 @@ export async function POST(
 
     if (missingForKind && service.tw_resource_id && timewebToken()) {
       await syncServiceFromProvider(id, user.id).catch(() => null);
-      creds = readServiceCredentials(id, user.id);
+      creds = await readServiceCredentials(id, user.id);
     }
 
-    logAudit(user.id, `${service.kind}.credentials_viewed`, "service", id);
+    await logAudit(user.id, `${service.kind}.credentials_viewed`, "service", id);
 
     return Response.json(
       {

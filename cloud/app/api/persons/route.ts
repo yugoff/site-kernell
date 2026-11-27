@@ -11,10 +11,11 @@ import { encryptJson } from "@cloud/lib/crypto";
 import {
   db,
   listDomainPersonsForUser,
-  logActivity,
-  logAudit,
-  transaction,
+  batch,
+  activityStatement,
+  auditStatement,
 } from "@cloud/lib/database";
+import { salesEnabled } from "@cloud/lib/sales";
 import {
   TimewebApiError,
   timewebToken,
@@ -202,7 +203,7 @@ export async function GET() {
   try {
     const user = await apiUser();
     return Response.json(
-      { persons: user.demo ? [] : listDomainPersonsForUser(user.id) },
+      { persons: user.demo ? [] : await listDomainPersonsForUser(user.id) },
       { headers: { "Cache-Control": "private, no-store" } },
     );
   } catch (error) {
@@ -220,24 +221,24 @@ export async function POST(request: Request) {
         "В демокабинете нельзя сохранять персональные данные администратора домена.",
       );
     }
-    rateLimit(`persons:${user.id}`, 20);
+    await rateLimit(`persons:${user.id}`, 20);
     const body = await jsonBody(request);
     const { payload, label, summary } = validatePersonBody(body);
     const { ciphertext, keyVersion } = encryptJson(payload);
 
     const id = randomUUID();
     const now = Date.now();
-    transaction(() => {
+    await batch(
       db()
         .prepare(
           "INSERT INTO domain_persons (id,user_id,type,label,summary,encrypted_payload,key_version,tw_person_id,created_at,updated_at) VALUES (?,?,?,?,?,?,?,NULL,?,?)",
         )
-        .run(id, user.id, payload.type, label, summary, ciphertext, keyVersion, now, now);
-      logActivity(user.id, `Добавлен профиль администратора домена: ${label}`);
-      logAudit(user.id, "domain_person.create", "domain_person", id, {
+        .bind(id, user.id, payload.type, label, summary, ciphertext, keyVersion, now, now),
+      activityStatement(user.id, `Добавлен профиль администратора домена: ${label}`),
+      auditStatement(user.id, "domain_person.create", "domain_person", id, {
         type: payload.type,
-      });
-    });
+      }),
+    );
 
     return Response.json({
       person: {
@@ -261,12 +262,12 @@ export async function PUT(request: Request) {
     if (user.demo) {
       throw new ApiError(400, "В демокабинете профили недоступны.");
     }
-    rateLimit(`persons-upd:${user.id}`, 20);
+    await rateLimit(`persons-upd:${user.id}`, 20);
     const body = await jsonBody(request);
     const id = typeof body.id === "string" ? body.id.trim() : "";
     if (!id) throw new ApiError(400, "Укажите ID профиля.");
 
-    const existing = db()
+    const existing = await db()
       .prepare(
         "SELECT id,type,label,summary,encrypted_payload,tw_person_id FROM domain_persons WHERE id=? AND user_id=?",
       )
@@ -309,6 +310,9 @@ export async function PUT(request: Request) {
     };
 
     if (existing.tw_person_id && timewebToken()) {
+      if (!salesEnabled()) {
+        throw new ApiError(503, "Обновление анкеты у провайдера пока отключено.");
+      }
       try {
         await updateTimewebPerson(existing.tw_person_id, {
           address: mailingAddress,
@@ -329,18 +333,18 @@ export async function PUT(request: Request) {
 
     const { ciphertext, keyVersion } = encryptJson(updatedPayload);
     const now = Date.now();
-    transaction(() => {
+    await batch(
       db()
         .prepare(
           "UPDATE domain_persons SET encrypted_payload=?,key_version=?,updated_at=? WHERE id=? AND user_id=?",
         )
-        .run(ciphertext, keyVersion, now, id, user.id);
-      logActivity(
+        .bind(ciphertext, keyVersion, now, id, user.id),
+      activityStatement(
         user.id,
         `Обновлён профиль администратора домена: ${existing.label}`,
-      );
-      logAudit(user.id, "domain_person.update", "domain_person", id);
-    });
+      ),
+      auditStatement(user.id, "domain_person.update", "domain_person", id),
+    );
 
     return Response.json({ ok: true });
   } catch (error) {
@@ -355,23 +359,20 @@ export async function DELETE(request: Request) {
     if (user.demo) {
       throw new ApiError(400, "В демокабинете профили недоступны.");
     }
-    rateLimit(`persons-del:${user.id}`, 20);
+    await rateLimit(`persons-del:${user.id}`, 20);
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id")?.trim() || "";
     if (!id) throw new ApiError(400, "Укажите ID профиля.");
 
-    const deleted = transaction(() => {
-      const result = db()
+    const [deleted] = await batch(
+      db()
         .prepare("DELETE FROM domain_persons WHERE id=? AND user_id=?")
-        .run(id, user.id);
-      if (result.changes > 0) {
-        logActivity(user.id, "Удалён профиль администратора домена");
-        logAudit(user.id, "domain_person.delete", "domain_person", id);
-      }
-      return result.changes;
-    });
+        .bind(id, user.id),
+      activityStatement(user.id, "Удалён профиль администратора домена", true),
+      auditStatement(user.id, "domain_person.delete", "domain_person", id, undefined, true),
+    );
 
-    if (!deleted) throw new ApiError(404, "Профиль не найден.");
+    if (!deleted.meta.changes) throw new ApiError(404, "Профиль не найден.");
     return Response.json({ ok: true });
   } catch (error) {
     return apiError(error);

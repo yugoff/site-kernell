@@ -1,8 +1,0 @@
-.git
-**/node_modules
-**/.next
-**/.data
-**/.env*
-!**/.env.example
-out
-out-chess

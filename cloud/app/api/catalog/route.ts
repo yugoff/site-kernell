@@ -10,7 +10,7 @@ export const runtime = "nodejs";
 
 export async function GET(request: Request) {
   try {
-    rateLimit("catalog:read", 120, 60_000);
+    await rateLimit("catalog:read", 120, 60_000);
     const { searchParams } = new URL(request.url);
     const category = searchParams.get("category") || "all";
 

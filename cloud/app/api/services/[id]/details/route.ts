@@ -22,9 +22,9 @@ export async function GET(
   try {
     const user = await apiUser();
     const { id } = await context.params;
-    rateLimit(`service-details:${user.id}`, 60);
+    await rateLimit(`service-details:${user.id}`, 60);
 
-    const service = db()
+    const service = await db()
       .prepare(
         "SELECT id,kind,name,status,details,address,renewal,auto_renew AS autoRenew,tw_resource_id AS twResourceId,metadata_json AS metadataJson FROM services WHERE id=? AND user_id=?",
       )
@@ -76,7 +76,7 @@ export async function GET(
         getVpsCatalogData(),
       ]);
       const credExists = Boolean(
-        db()
+        await db()
           .prepare(
             "SELECT service_id FROM service_credentials WHERE service_id=? AND user_id=?",
           )

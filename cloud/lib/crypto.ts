@@ -1,4 +1,5 @@
 import "server-only";
+import { cloudSetting } from "./settings";
 import {
   createCipheriv,
   createDecipheriv,
@@ -9,7 +10,7 @@ import {
 const CURRENT_KEY_VERSION = 1;
 
 function resolveEncryptionKey(): Buffer {
-  const configured = process.env.CLOUD_DATA_ENCRYPTION_KEY?.trim();
+  const configured = cloudSetting("CLOUD_DATA_ENCRYPTION_KEY")?.trim();
   if (configured) {
     if (/^[0-9a-f]{64}$/i.test(configured)) {
       return Buffer.from(configured, "hex");
@@ -19,19 +20,7 @@ function resolveEncryptionKey(): Buffer {
     return createHash("sha256").update(configured).digest();
   }
 
-  if (
-    process.env.NODE_ENV === "production" &&
-    process.env.CLOUD_DEMO_ENABLED === "false"
-  ) {
-    throw new Error(
-      "CLOUD_DATA_ENCRYPTION_KEY must be set when production sales are enabled.",
-    );
-  }
-
-  const dbPath = process.env.CLOUD_DATABASE_PATH || "kernell-cloud-dev";
-  return createHash("sha256")
-    .update(`kernell-cloud-preview:${dbPath}`)
-    .digest();
+  throw new Error("CLOUD_DATA_ENCRYPTION_KEY must be set to store sensitive data.");
 }
 
 export function sha256Hex(value: string): string {

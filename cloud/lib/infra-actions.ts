@@ -2,7 +2,7 @@ import "server-only";
 import { isIPv4 } from "node:net";
 import { ApiError } from "./auth";
 import type { ServiceKind, User } from "./catalog";
-import { db, logActivity, logAudit, transaction } from "./database";
+import { db, logActivity, logAudit, batch, activityStatement, auditStatement } from "./database";
 import { syncServiceFromProvider } from "./provisioning";
 import {
   TimewebApiError,
@@ -65,14 +65,14 @@ export type LocalServiceRow = {
   metadata_json: string | null;
 };
 
-function ownedUpstreamResource(
+async function ownedUpstreamResource(
   userId: string,
   targetServiceId: unknown,
   allowedKinds: ServiceKind[],
 ) {
   const id = typeof targetServiceId === "string" ? targetServiceId.trim() : "";
   if (!id) throw new ApiError(400, "Выберите целевой ресурс.");
-  const row = db()
+  const row = await db()
     .prepare(
       "SELECT id,kind,name,tw_resource_id,address FROM services WHERE id=? AND user_id=?",
     )
@@ -91,12 +91,12 @@ function ownedUpstreamResource(
   return { ...row, twResourceId: row.tw_resource_id };
 }
 
-function listOwnedTargets(userId: string, kinds: ServiceKind[]) {
-  return db()
+async function listOwnedTargets(userId: string, kinds: ServiceKind[]) {
+  return (await db()
     .prepare(
       `SELECT id,kind,name,address FROM services WHERE user_id=? AND tw_resource_id IS NOT NULL AND kind IN (${kinds.map(() => "?").join(",")}) ORDER BY kind,name`,
     )
-    .all(userId, ...kinds)
+    .all(userId, ...kinds))
     .map((row) => ({ ...row })) as Array<{
     id: string;
     kind: ServiceKind;
@@ -124,22 +124,22 @@ async function deleteUpstreamResource(kind: ServiceKind, twId: string) {
   }
 }
 
-function removeLocalService(userId: string, service: LocalServiceRow) {
+async function removeLocalService(userId: string, service: LocalServiceRow) {
   const nowIso = new Date().toISOString();
-  transaction(() => {
+  await batch(
     db()
       .prepare(
         "UPDATE subscriptions SET status='terminated',updated_at=? WHERE service_id=? AND user_id=?",
       )
-      .run(nowIso, service.id, userId);
+      .bind(nowIso, service.id, userId),
     db()
       .prepare("DELETE FROM services WHERE id=? AND user_id=?")
-      .run(service.id, userId);
-    logActivity(userId, `Удалена услуга: ${service.name}`);
-    logAudit(userId, `${service.kind}.deleted`, "service", service.id, {
+      .bind(service.id, userId),
+    activityStatement(userId, `Удалена услуга: ${service.name}`),
+    auditStatement(userId, `${service.kind}.deleted`, "service", service.id, {
       twResourceId: service.tw_resource_id,
-    });
-  });
+    }),
+  );
 }
 
 export async function handleInfraServiceAction(
@@ -155,16 +155,16 @@ export async function handleInfraServiceAction(
       throw new ApiError(400, "Проверьте настройку продления.");
     }
     const flag = body.enabled ? 1 : 0;
-    transaction(() => {
+    await batch(
       db()
         .prepare("UPDATE services SET auto_renew=? WHERE id=? AND user_id=?")
-        .run(flag, service.id, user.id);
+        .bind(flag, service.id, user.id),
       db()
         .prepare(
           "UPDATE subscriptions SET auto_renew=?,updated_at=? WHERE service_id=? AND user_id=?",
         )
-        .run(flag, new Date().toISOString(), service.id, user.id);
-    });
+        .bind(flag, new Date().toISOString(), service.id, user.id),
+    );
     return {
       ok: true,
       message: body.enabled
@@ -178,7 +178,7 @@ export async function handleInfraServiceAction(
       throw new ApiError(400, "Подтвердите удаление ресурса.");
     }
     await deleteUpstreamResource(service.kind, twId);
-    removeLocalService(user.id, service);
+    await removeLocalService(user.id, service);
     return { ok: true, deleted: true, message: "Ресурс удалён." };
   }
 
@@ -192,11 +192,11 @@ export async function handleInfraServiceAction(
             : "reboot";
       await runDatabaseAction(twId, twAction);
       if (action === "start" || action === "stop") {
-        db()
+        await db()
           .prepare("UPDATE services SET status=? WHERE id=? AND user_id=?")
           .run(action === "start" ? "running" : "stopped", service.id, user.id);
       }
-      logActivity(user.id, `БД ${service.name}: ${twAction}`);
+      await logActivity(user.id, `БД ${service.name}: ${twAction}`);
       return { ok: true, message: "Команда отправлена кластеру БД." };
     }
     if (action === "add_database") {
@@ -205,7 +205,7 @@ export async function handleInfraServiceAction(
         throw new ApiError(400, "Имя базы данных: 2–48 латинских символов или _.");
       }
       await createDatabaseInstance(twId, { name: dbName });
-      logActivity(user.id, `Создана база ${dbName} в кластере ${service.name}`);
+      await logActivity(user.id, `Создана база ${dbName} в кластере ${service.name}`);
       return { ok: true, message: `База данных ${dbName} создана.` };
     }
     if (action === "add_admin") {
@@ -216,7 +216,7 @@ export async function handleInfraServiceAction(
         throw new ApiError(400, "Укажите логин и пароль (от 8 символов).");
       }
       await createDatabaseAdmin(twId, { login, password, for_all: true });
-      logActivity(user.id, `Добавлен пользователь БД ${login}`);
+      await logActivity(user.id, `Добавлен пользователь БД ${login}`);
       return { ok: true, message: `Пользователь ${login} добавлен.` };
     }
   }
@@ -257,7 +257,7 @@ export async function handleInfraServiceAction(
       }
       if (delta > 0) await addK8sNodes(twId, groupId, delta);
       else await removeK8sNodes(twId, groupId, Math.abs(delta));
-      logActivity(user.id, `Масштабирование K8s ${service.name} (${delta > 0 ? "+" : ""}${delta})`);
+      await logActivity(user.id, `Масштабирование K8s ${service.name} (${delta > 0 ? "+" : ""}${delta})`);
       return { ok: true, message: "Запрос на масштабирование нод отправлен." };
     }
   }
@@ -288,7 +288,7 @@ export async function handleInfraServiceAction(
       return { ok: true, message: "Правило балансировки удалено." };
     }
     if (action === "add_target") {
-      const target = ownedUpstreamResource(user.id, body.targetServiceId, ["vps"]);
+      const target = await ownedUpstreamResource(user.id, body.targetServiceId, ["vps"]);
       if (!isIPv4(target.address)) {
         throw new ApiError(400, "У выбранного сервера ещё нет публичного IPv4.");
       }
@@ -318,13 +318,13 @@ export async function handleInfraServiceAction(
       return { ok: true, message: "Правило удалено." };
     }
     if (action === "link" || action === "unlink") {
-      const target = ownedUpstreamResource(user.id, body.targetServiceId, ["vps"]);
+      const target = await ownedUpstreamResource(user.id, body.targetServiceId, ["vps"]);
       if (action === "link") {
         await linkFirewallResource(twId, target.twResourceId, "server");
       } else {
         await unlinkFirewallResource(twId, target.twResourceId, "server");
       }
-      logAudit(user.id, `firewall.${action}`, "service", service.id, {
+      await logAudit(user.id, `firewall.${action}`, "service", service.id, {
         targetServiceId: target.id,
       });
       return {
@@ -339,7 +339,7 @@ export async function handleInfraServiceAction(
 
   if (service.kind === "floating_ip") {
     if (action === "bind") {
-      const target = ownedUpstreamResource(user.id, body.targetServiceId, [
+      const target = await ownedUpstreamResource(user.id, body.targetServiceId, [
         "vps",
         "balancer",
         "database",
@@ -364,7 +364,7 @@ export async function handleInfraServiceAction(
 
   if (service.kind === "network_drive") {
     if (action === "mount") {
-      const target = ownedUpstreamResource(user.id, body.targetServiceId, ["vps"]);
+      const target = await ownedUpstreamResource(user.id, body.targetServiceId, ["vps"]);
       await mountNetworkDrive(twId, Number(target.twResourceId));
       await syncServiceFromProvider(service.id, user.id).catch(() => null);
       return { ok: true, message: `Диск подключён к ${target.name}.` };
@@ -379,12 +379,12 @@ export async function handleInfraServiceAction(
   if (service.kind === "cdn") {
     if (action === "suspend") {
       await suspendCdnResource(twId);
-      db().prepare("UPDATE services SET status='stopped' WHERE id=?").run(service.id);
+      await db().prepare("UPDATE services SET status='stopped' WHERE id=?").run(service.id);
       return { ok: true, message: "Раздача CDN приостановлена." };
     }
     if (action === "resume") {
       await resumeCdnResource(twId);
-      db().prepare("UPDATE services SET status='active' WHERE id=?").run(service.id);
+      await db().prepare("UPDATE services SET status='active' WHERE id=?").run(service.id);
       return { ok: true, message: "Раздача CDN возобновлена." };
     }
     if (action === "clear_cache") {
@@ -407,7 +407,7 @@ export async function getInfraServiceDetails(
   const twId = service.tw_resource_id;
   await syncServiceFromProvider(service.id, userId).catch(() => null);
   const credExists = Boolean(
-    db()
+    await db()
       .prepare(
         "SELECT service_id FROM service_credentials WHERE service_id=? AND user_id=?",
       )
@@ -467,7 +467,7 @@ export async function getInfraServiceDetails(
       live: true,
       balancer,
       rules,
-      targets: listOwnedTargets(userId, ["vps"]),
+      targets: await listOwnedTargets(userId, ["vps"]),
     };
   }
   if (service.kind === "firewall") {
@@ -480,7 +480,7 @@ export async function getInfraServiceDetails(
       live: true,
       group,
       rules,
-      targets: listOwnedTargets(userId, ["vps"]),
+      targets: await listOwnedTargets(userId, ["vps"]),
     };
   }
   if (service.kind === "vpc") {
@@ -491,7 +491,7 @@ export async function getInfraServiceDetails(
       kind: "floating_ip",
       live: true,
       floatingIp: await fetchFloatingIp(twId).catch(() => null),
-      targets: listOwnedTargets(userId, ["vps", "balancer", "database", "vpc"]),
+      targets: await listOwnedTargets(userId, ["vps", "balancer", "database", "vpc"]),
     };
   }
   if (service.kind === "network_drive") {
@@ -499,7 +499,7 @@ export async function getInfraServiceDetails(
       kind: "network_drive",
       live: true,
       drive: await fetchNetworkDrive(twId).catch(() => null),
-      targets: listOwnedTargets(userId, ["vps"]),
+      targets: await listOwnedTargets(userId, ["vps"]),
     };
   }
   if (service.kind === "cdn") {

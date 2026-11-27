@@ -1,4 +1,5 @@
 import "server-only";
+import { cloudSetting } from "./settings";
 import { db } from "./database";
 
 export type PricingRule = {
@@ -30,15 +31,15 @@ const FALLBACK_RULE: PricingRule = {
   updatedAt: 0,
 };
 
-export function listPricingRules(category?: string): PricingRule[] {
+export async function listPricingRules(category?: string): Promise<PricingRule[]> {
   const sql = db();
   const rows = category
-    ? sql
+    ? await sql
         .prepare(
           "SELECT id,category,provider_key AS providerKey,markup_percent AS markupPercent,fixed_retail_price AS fixedRetailPrice,min_margin_rub AS minMarginRub,enabled,updated_at AS updatedAt FROM pricing_rules WHERE category=? ORDER BY provider_key",
         )
         .all(category)
-    : sql
+    : await sql
         .prepare(
           "SELECT id,category,provider_key AS providerKey,markup_percent AS markupPercent,fixed_retail_price AS fixedRetailPrice,min_margin_rub AS minMarginRub,enabled,updated_at AS updatedAt FROM pricing_rules ORDER BY category,provider_key",
         )
@@ -50,52 +51,30 @@ export function listPricingRules(category?: string): PricingRule[] {
   }));
 }
 
-/**
- * Resolves the most specific enabled rule: (category, providerKey) first,
- * then category default (category, ''), then safe fallback.
- */
-export function resolvePricingRule(
-  category: string,
-  providerKey = "",
-): PricingRule {
-  const sql = db();
-  if (providerKey) {
-    const specific = sql
-      .prepare(
-        "SELECT id,category,provider_key AS providerKey,markup_percent AS markupPercent,fixed_retail_price AS fixedRetailPrice,min_margin_rub AS minMarginRub,enabled,updated_at AS updatedAt FROM pricing_rules WHERE category=? AND provider_key=? AND enabled=1",
-      )
-      .get(category, providerKey) as
-      | (Omit<PricingRule, "enabled"> & { enabled: number })
-      | undefined;
-    if (specific) {
-      return { ...specific, enabled: Boolean(specific.enabled) };
-    }
-  }
-
-  const categoryDefault = sql
-    .prepare(
-      "SELECT id,category,provider_key AS providerKey,markup_percent AS markupPercent,fixed_retail_price AS fixedRetailPrice,min_margin_rub AS minMarginRub,enabled,updated_at AS updatedAt FROM pricing_rules WHERE category=? AND provider_key='' AND enabled=1",
-    )
-    .get(category) as
-    | (Omit<PricingRule, "enabled"> & { enabled: number })
-    | undefined;
-
-  if (categoryDefault) {
-    return { ...categoryDefault, enabled: Boolean(categoryDefault.enabled) };
-  }
-  return { ...FALLBACK_RULE, category };
+/** Load each category in a single D1 read even for catalogs with hundreds of items. */
+export async function loadPriceCalculator(category: string) {
+  const rules = new Map((await listPricingRules(category))
+    .filter((rule) => rule.enabled)
+    .map((rule) => [rule.providerKey, rule]));
+  const configuredMarkup = Number(cloudSetting("CLOUD_DEFAULT_MARKUP_PERCENT"));
+  const fallback = Number.isFinite(configuredMarkup) && configuredMarkup >= 0 && configuredMarkup <= 500
+    ? { ...FALLBACK_RULE, markupPercent: configuredMarkup }
+    : FALLBACK_RULE;
+  return (cost: number, providerKey = "") =>
+    priceWithRule(cost, rules.get(providerKey) ?? rules.get("") ?? fallback);
 }
 
-/**
- * Calculates integer ruble retail price from an upstream provider cost price.
- */
-export function calculateRetailPrice(
-  costPriceRub: number,
+export async function calculateRetailPrice(
+  cost: number,
   category: string,
   providerKey = "",
-): PricedAmount {
-  const safeCost = Math.max(0, Number(costPriceRub) || 0);
-  const rule = resolvePricingRule(category, providerKey);
+) {
+  const price = await loadPriceCalculator(category);
+  return price(cost, providerKey);
+}
+
+function priceWithRule(cost: number, rule: PricingRule): PricedAmount {
+  const safeCost = Math.max(0, Number(cost) || 0);
   if (rule.fixedRetailPrice !== null && rule.fixedRetailPrice > 0) {
     const retailPrice = Math.round(rule.fixedRetailPrice);
     const margin = Math.max(0, retailPrice - safeCost);

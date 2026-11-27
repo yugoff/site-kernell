@@ -1,9 +1,11 @@
 import "server-only";
+import { cloudSetting } from "../settings";
 import { setTimeout as delay } from "node:timers/promises";
+import { salesEnabled } from "../sales";
 import type { TimewebErrorPayload } from "./types";
 
 function timewebBaseUrl(): string {
-  return (process.env.TIMEWEB_API_URL?.trim() || "https://api.timeweb.cloud")
+  return (cloudSetting("TIMEWEB_API_URL")?.trim() || "https://api.timeweb.cloud")
     .replace(/\/$/, "");
 }
 // Timeweb Public API enforces 20 req/s per endpoint; keep a conservative headroom.
@@ -21,6 +23,7 @@ export class TimewebApiError extends Error {
     public responseId: string | null,
     public endpoint: string,
     message: string,
+    public outcomeUnknown = false,
   ) {
     super(message);
     this.name = "TimewebApiError";
@@ -28,7 +31,7 @@ export class TimewebApiError extends Error {
 }
 
 export function timewebToken(): string | null {
-  const token = process.env.TIMEWEB_TOKEN?.trim();
+  const token = cloudSetting("TIMEWEB_TOKEN")?.trim();
   return token ? token : null;
 }
 
@@ -89,6 +92,9 @@ async function executeTimewebFetch(
   }
 
   const method = options.method ?? (options.body === undefined ? "GET" : "POST");
+  if (method !== "GET" && !salesEnabled()) {
+    throw new TimewebApiError(503, "sales_disabled", null, path, "Действия у провайдера пока отключены.");
+  }
   const timeoutMs = options.timeoutMs ?? 8000;
   const maxRetries = options.retries ?? (method === "GET" ? 2 : 0);
 
@@ -106,7 +112,7 @@ async function executeTimewebFetch(
         },
         body: options.body === undefined ? undefined : JSON.stringify(options.body),
         cache: "no-store",
-        redirect: "error",
+        redirect: "manual",
         signal: AbortSignal.timeout(timeoutMs),
       });
     } catch (error) {
@@ -121,6 +127,7 @@ async function executeTimewebFetch(
         null,
         path,
         error instanceof Error ? error.message : "Network failure",
+        method !== "GET",
       );
     }
 
@@ -170,6 +177,7 @@ async function executeTimewebFetch(
       responseId,
       path,
       message,
+      method !== "GET" && response.status >= 500,
     );
   }
 }

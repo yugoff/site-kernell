@@ -1,0 +1,10 @@
+{
+  "name": "kernell-cloud",
+  "private": true,
+  "scripts": {
+    "build": "next build --webpack"
+  },
+  "dependencies": {
+    "next": "^16.0.0"
+  }
+}

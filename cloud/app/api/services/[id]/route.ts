@@ -8,8 +8,9 @@ import {
 } from "@cloud/lib/auth";
 import type { ServiceKind } from "@cloud/lib/catalog";
 import { getVpsCatalogData } from "@cloud/lib/catalog-service";
-import { db, logActivity, logAudit, transaction } from "@cloud/lib/database";
+import { db, logActivity, logAudit, batch, activityStatement, auditStatement } from "@cloud/lib/database";
 import { handleInfraServiceAction } from "@cloud/lib/infra-actions";
+import { salesEnabled } from "@cloud/lib/sales";
 import { syncServiceFromProvider } from "@cloud/lib/provisioning";
 import {
   TimewebApiError,
@@ -57,8 +58,8 @@ export async function POST(
     const user = await apiUser();
     const { id } = await context.params;
     const body = await jsonBody(request);
-    rateLimit(`service:${user.id}`, 60);
-    const service = db()
+    await rateLimit(`service:${user.id}`, 60);
+    const service = await db()
       .prepare(
         "SELECT id,name,kind,status,tw_resource_id,metadata_json FROM services WHERE id=? AND user_id=?",
       )
@@ -94,28 +95,30 @@ export async function POST(
             })()
           : "";
 
-      transaction(() => {
-        if (action === "start" || action === "stop")
-          db()
-            .prepare("UPDATE services SET status=? WHERE id=? AND user_id=?")
-            .run(action === "start" ? "running" : "stopped", id, user.id);
-        if (action === "renewal")
-          db()
-            .prepare("UPDATE services SET auto_renew=? WHERE id=? AND user_id=?")
-            .run(body.enabled ? 1 : 0, id, user.id);
-        if (action === "dns")
-          db()
-            .prepare("UPDATE services SET details=? WHERE id=? AND user_id=?")
-            .run(dns, id, user.id);
-        const verbs: Record<string, string> = {
-          start: "Запуск",
-          stop: "Остановка",
-          restart: "Перезагрузка",
-          renewal: "Изменение автопродления",
-          dns: "Изменение NS-серверов",
-        };
-        logActivity(user.id, `${verbs[action]}: ${service.name} (демо)`);
-      });
+      const verbs: Record<string, string> = {
+        start: "Запуск",
+        stop: "Остановка",
+        restart: "Перезагрузка",
+        renewal: "Изменение автопродления",
+        dns: "Изменение NS-серверов",
+      };
+      const changes = [];
+      if (action === "start" || action === "stop") {
+        changes.push(db()
+          .prepare("UPDATE services SET status=? WHERE id=? AND user_id=?")
+          .bind(action === "start" ? "running" : "stopped", id, user.id));
+      }
+      if (action === "renewal") {
+        changes.push(db()
+          .prepare("UPDATE services SET auto_renew=? WHERE id=? AND user_id=?")
+          .bind(body.enabled ? 1 : 0, id, user.id));
+      }
+      if (action === "dns") {
+        changes.push(db()
+          .prepare("UPDATE services SET details=? WHERE id=? AND user_id=?")
+          .bind(dns, id, user.id));
+      }
+      await batch(...changes, activityStatement(user.id, `${verbs[action]}: ${service.name} (демо)`));
       return Response.json({
         ok: true,
         message: "Изменение сохранено в демокабинете.",
@@ -133,17 +136,20 @@ export async function POST(
       await syncServiceFromProvider(service.id, user.id);
       return Response.json({ ok: true, message: "Состояние обновлено." });
     }
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление услугами у провайдера пока отключено.");
+    }
 
     const twId = service.tw_resource_id;
 
     if (service.kind === "vps") {
       if (action === "start") {
         await runTimewebServerAction(twId, "start");
-        db()
+        await db()
           .prepare("UPDATE services SET status='running' WHERE id=? AND user_id=?")
           .run(id, user.id);
-        logActivity(user.id, `Запуск сервера ${service.name}`);
-        logAudit(user.id, "vps.start", "service", id);
+        await logActivity(user.id, `Запуск сервера ${service.name}`);
+        await logAudit(user.id, "vps.start", "service", id);
         return Response.json({ ok: true, message: "Команда запуска отправлена." });
       }
 
@@ -152,11 +158,11 @@ export async function POST(
           twId,
           body.hard ? "hard_shutdown" : "shutdown",
         );
-        db()
+        await db()
           .prepare("UPDATE services SET status='stopped' WHERE id=? AND user_id=?")
           .run(id, user.id);
-        logActivity(user.id, `Остановка сервера ${service.name}`);
-        logAudit(user.id, "vps.stop", "service", id, { hard: Boolean(body.hard) });
+        await logActivity(user.id, `Остановка сервера ${service.name}`);
+        await logAudit(user.id, "vps.stop", "service", id, { hard: Boolean(body.hard) });
         return Response.json({ ok: true, message: "Сервер остановлен." });
       }
 
@@ -168,16 +174,16 @@ export async function POST(
           twId,
           body.hard ? "hard_reboot" : "reboot",
         );
-        logActivity(user.id, `Перезагрузка сервера ${service.name}`);
-        logAudit(user.id, "vps.restart", "service", id, { hard: Boolean(body.hard) });
+        await logActivity(user.id, `Перезагрузка сервера ${service.name}`);
+        await logAudit(user.id, "vps.restart", "service", id, { hard: Boolean(body.hard) });
         return Response.json({ ok: true, message: "Сервер перезагружается." });
       }
 
       if (action === "reset_password") {
         await resetTimewebServerPassword(twId);
         await syncServiceFromProvider(id, user.id).catch(() => null);
-        logActivity(user.id, `Сброшен root-пароль сервера ${service.name}`);
-        logAudit(user.id, "vps.password_reset", "service", id);
+        await logActivity(user.id, `Сброшен root-пароль сервера ${service.name}`);
+        await logAudit(user.id, "vps.password_reset", "service", id);
         return Response.json({
           ok: true,
           message: "Новый root-пароль сгенерирован и сохранён.",
@@ -204,12 +210,12 @@ export async function POST(
           os_id: osId,
           ...(softwareId ? { software_id: softwareId } : {}),
         });
-        db()
+        await db()
           .prepare("UPDATE services SET status='reinstalling' WHERE id=? AND user_id=?")
           .run(id, user.id);
         await syncServiceFromProvider(id, user.id).catch(() => null);
-        logActivity(user.id, `Запущена переустановка ОС на ${service.name}`);
-        logAudit(user.id, "vps.reinstall", "service", id, { osId, softwareId });
+        await logActivity(user.id, `Запущена переустановка ОС на ${service.name}`);
+        await logAudit(user.id, "vps.reinstall", "service", id, { osId, softwareId });
         return Response.json({
           ok: true,
           message: "Переустановка операционной системы запущена.",
@@ -231,11 +237,11 @@ export async function POST(
         }
         await createTimewebServerDisk(twId, sizeMb);
         await syncServiceFromProvider(id, user.id).catch(() => null);
-        logActivity(
+        await logActivity(
           user.id,
           `Добавлен диск ${Math.round(sizeMb / 1024)} ГБ на ${service.name}`,
         );
-        logAudit(user.id, "vps.disk_added", "service", id, { sizeMb });
+        await logAudit(user.id, "vps.disk_added", "service", id, { sizeMb });
         return Response.json({ ok: true, message: "Дополнительный диск добавлен." });
       }
 
@@ -244,20 +250,20 @@ export async function POST(
           throw new ApiError(400, "Проверьте настройку продления.");
         }
         const flag = body.enabled ? 1 : 0;
-        transaction(() => {
+        await batch(
           db()
             .prepare("UPDATE services SET auto_renew=? WHERE id=? AND user_id=?")
-            .run(flag, id, user.id);
+            .bind(flag, id, user.id),
           db()
             .prepare(
               "UPDATE subscriptions SET auto_renew=?,updated_at=? WHERE service_id=? AND user_id=?",
             )
-            .run(flag, new Date().toISOString(), id, user.id);
-          logActivity(
+            .bind(flag, new Date().toISOString(), id, user.id),
+          activityStatement(
             user.id,
             `Изменение автопродления сервера ${service.name}`,
-          );
-        });
+          ),
+        );
         return Response.json({
           ok: true,
           message: body.enabled
@@ -278,18 +284,18 @@ export async function POST(
           }
         }
         const nowIso = new Date().toISOString();
-        transaction(() => {
+        await batch(
           db()
             .prepare(
               "UPDATE subscriptions SET status='terminated',updated_at=? WHERE service_id=? AND user_id=?",
             )
-            .run(nowIso, id, user.id);
+            .bind(nowIso, id, user.id),
           db()
             .prepare("DELETE FROM services WHERE id=? AND user_id=?")
-            .run(id, user.id);
-          logActivity(user.id, `Удалён сервер ${service.name}`);
-          logAudit(user.id, "vps.deleted", "service", id, { twId });
-        });
+            .bind(id, user.id),
+          activityStatement(user.id, `Удалён сервер ${service.name}`),
+          auditStatement(user.id, "vps.deleted", "service", id, { twId }),
+        );
         return Response.json({ ok: true, deleted: true, message: "Сервер удалён." });
       }
 
@@ -310,15 +316,15 @@ export async function POST(
         names.map((host) => ({ host })),
       );
       const joined = names.join("|");
-      transaction(() => {
+      await batch(
         db()
           .prepare("UPDATE services SET details=? WHERE id=? AND user_id=?")
-          .run(joined, id, user.id);
-        logActivity(user.id, `Обновлены NS-серверы для ${service.name}`);
-        logAudit(user.id, "domain.ns_updated", "service", id, {
+          .bind(joined, id, user.id),
+        activityStatement(user.id, `Обновлены NS-серверы для ${service.name}`),
+        auditStatement(user.id, "domain.ns_updated", "service", id, {
           nameservers: names,
-        });
-      });
+        }),
+      );
       return Response.json({ ok: true, message: "NS-серверы обновлены." });
     }
 
@@ -328,20 +334,20 @@ export async function POST(
       }
       await patchDomainSettings(twId, { is_autoprolong_enabled: body.enabled });
       const flag = body.enabled ? 1 : 0;
-      transaction(() => {
+      await batch(
         db()
           .prepare("UPDATE services SET auto_renew=? WHERE id=? AND user_id=?")
-          .run(flag, id, user.id);
+          .bind(flag, id, user.id),
         db()
           .prepare(
             "UPDATE subscriptions SET auto_renew=?,updated_at=? WHERE service_id=? AND user_id=?",
           )
-          .run(flag, new Date().toISOString(), id, user.id);
-        logActivity(user.id, `Изменение автопродления домена ${service.name}`);
-        logAudit(user.id, "domain.renewal_updated", "service", id, {
+          .bind(flag, new Date().toISOString(), id, user.id),
+        activityStatement(user.id, `Изменение автопродления домена ${service.name}`),
+        auditStatement(user.id, "domain.renewal_updated", "service", id, {
           enabled: body.enabled,
-        });
-      });
+        }),
+      );
       return Response.json({
         ok: true,
         message: body.enabled

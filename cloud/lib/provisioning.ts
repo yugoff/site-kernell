@@ -5,12 +5,14 @@ import { TIMEWEB_LOCATION_LABELS } from "./catalog-service";
 import { decryptJson } from "./crypto";
 import {
   db,
-  ledgerBalanceRub,
-  logActivity,
   logAudit,
-  saveServiceCredentials,
-  transaction,
+  serviceCredentialsStatement,
+  batch,
+  activityStatement,
+  auditStatement,
 } from "./database";
+import { acquireLease } from "./leases";
+import { salesEnabled } from "./sales";
 import { provisionInfraJob, syncInfraService } from "./infra-provisioning";
 import {
   TimewebApiError,
@@ -32,8 +34,11 @@ import {
 } from "./timeweb";
 
 const MAX_ATTEMPTS = 5;
-const projectLocks = new Map<string, Promise<number>>();
-const personLocks = new Map<string, Promise<number>>();
+async function providerLease(key: string) {
+  const release = await acquireLease(key, 120_000);
+  if (!release) throw new TimewebApiError(429, "resource_busy", null, key, "Ресурс подготавливается.");
+  return release;
+}
 
 class FatalProvisioningError extends Error {
   constructor(message: string) {
@@ -140,42 +145,38 @@ export async function ensureUserTimewebProject(
   userId: string,
   userName: string,
 ): Promise<number> {
-  const existing = db()
+  const existing = await db()
     .prepare("SELECT tw_project_id FROM users WHERE id=?")
     .get(userId) as { tw_project_id: number | null } | undefined;
   if (existing?.tw_project_id) return existing.tw_project_id;
 
-  let inflight = projectLocks.get(userId);
-  if (!inflight) {
-    inflight = (async () => {
-      const recheck = db()
-        .prepare("SELECT tw_project_id FROM users WHERE id=?")
-        .get(userId) as { tw_project_id: number | null } | undefined;
-      if (recheck?.tw_project_id) return recheck.tw_project_id;
-      const project = await createTimewebProject(
-        `kc-${userId.slice(0, 8)}`,
-        `Kernell Cloud workspace (${userName.slice(0, 48)})`,
-      );
-      db()
-        .prepare("UPDATE users SET tw_project_id=? WHERE id=?")
-        .run(project.id, userId);
-      logAudit(userId, "timeweb.project_created", "user", userId, {
-        twProjectId: project.id,
-      });
-      return project.id;
-    })().finally(() => {
-      projectLocks.delete(userId);
+  const release = await providerLease(`project:${userId}`);
+  try {
+    const recheck = await db()
+      .prepare("SELECT tw_project_id FROM users WHERE id=?")
+      .get(userId) as { tw_project_id: number | null } | undefined;
+    if (recheck?.tw_project_id) return recheck.tw_project_id;
+    const project = await createTimewebProject(
+      `kc-${userId.slice(0, 8)}`,
+      `Kernell Cloud workspace (${userName.slice(0, 48)})`,
+    );
+    await db()
+      .prepare("UPDATE users SET tw_project_id=? WHERE id=?")
+      .run(project.id, userId);
+    await logAudit(userId, "timeweb.project_created", "user", userId, {
+      twProjectId: project.id,
     });
-    projectLocks.set(userId, inflight);
+    return project.id;
+  } finally {
+    await release();
   }
-  return inflight;
 }
 
 export async function ensureTimewebPerson(
   userId: string,
   localPersonId: string,
 ): Promise<number> {
-  const existing = db()
+  const existing = await db()
     .prepare(
       "SELECT id,encrypted_payload,tw_person_id FROM domain_persons WHERE id=? AND user_id=?",
     )
@@ -187,112 +188,104 @@ export async function ensureTimewebPerson(
   }
   if (existing.tw_person_id) return existing.tw_person_id;
 
-  let inflight = personLocks.get(localPersonId);
-  if (!inflight) {
-    inflight = (async () => {
-      const recheck = db()
-        .prepare(
-          "SELECT encrypted_payload,tw_person_id FROM domain_persons WHERE id=? AND user_id=?",
-        )
-        .get(localPersonId, userId) as
-        | { encrypted_payload: string; tw_person_id: number | null }
-        | undefined;
-      if (!recheck) {
-        throw new FatalProvisioningError(
-          "Профиль администратора домена не найден.",
-        );
-      }
-      if (recheck.tw_person_id) return recheck.tw_person_id;
-      const payload = decryptJson<TimewebPersonInput>(recheck.encrypted_payload);
-      const created = await createTimewebPerson(payload);
-      db()
-        .prepare(
-          "UPDATE domain_persons SET tw_person_id=?,updated_at=? WHERE id=? AND user_id=?",
-        )
-        .run(created.id, Date.now(), localPersonId, userId);
-      logAudit(userId, "timeweb.person_synced", "domain_person", localPersonId, {
-        twPersonId: created.id,
-      });
-      return created.id;
-    })().finally(() => {
-      personLocks.delete(localPersonId);
+  const release = await providerLease(`person:${localPersonId}`);
+  try {
+    const recheck = await db()
+      .prepare(
+        "SELECT encrypted_payload,tw_person_id FROM domain_persons WHERE id=? AND user_id=?",
+      )
+      .get(localPersonId, userId) as
+      | { encrypted_payload: string; tw_person_id: number | null }
+      | undefined;
+    if (!recheck) {
+      throw new FatalProvisioningError(
+        "Профиль администратора домена не найден.",
+      );
+    }
+    if (recheck.tw_person_id) return recheck.tw_person_id;
+    const payload = decryptJson<TimewebPersonInput>(recheck.encrypted_payload);
+    const created = await createTimewebPerson(payload);
+    await db()
+      .prepare(
+        "UPDATE domain_persons SET tw_person_id=?,updated_at=? WHERE id=? AND user_id=?",
+      )
+      .run(created.id, Date.now(), localPersonId, userId);
+    await logAudit(userId, "timeweb.person_synced", "domain_person", localPersonId, {
+      twPersonId: created.id,
     });
-    personLocks.set(localPersonId, inflight);
+    return created.id;
+  } finally {
+    await release();
   }
-  return inflight;
 }
 
-export function refundOrderIfNeeded(orderId: string, reason: string) {
-  transaction(() => {
-    const sql = db();
-    const order = sql
-      .prepare(
-        "SELECT id,user_id,title,amount,status,retail_amount FROM orders WHERE id=?",
-      )
-      .get(orderId) as LocalOrderRow | undefined;
-    if (!order) return;
-    if (order.status !== "paid" && order.status !== "provisioning") return;
+export async function refundOrderIfNeeded(orderId: string, reason: string) {
+  const sql = db();
+  const order = await sql
+    .prepare(
+      "SELECT id,user_id,title,amount,status,retail_amount FROM orders WHERE id=?",
+    )
+    .get(orderId) as LocalOrderRow | undefined;
+  if (!order) return;
+  if (order.status !== "paid" && order.status !== "provisioning") return;
 
-    const nowIso = new Date().toISOString();
-    const retailRub = order.retail_amount ?? order.amount;
-    const refundKopecks = Math.max(0, retailRub * 100);
-    if (refundKopecks > 0) {
-      sql
-        .prepare(
-          "INSERT OR IGNORE INTO ledger_entries (id,user_id,direction,amount_kopecks,kind,reference_type,reference_id,idempotency_key,note,created_at) VALUES (?,?,?,?,?,?,?,?,?,?)",
-        )
-        .run(
-          randomUUID(),
-          order.user_id,
-          "credit",
-          refundKopecks,
-          "refund",
-          "order",
-          order.id,
-          `refund:order:${order.id}`,
-          `Возврат за заказ: ${order.title}`,
-          nowIso,
-        );
-    }
-
-    sql
-      .prepare("UPDATE orders SET status='failed',updated_at=? WHERE id=?")
-      .run(nowIso, order.id);
-    sql
-      .prepare(
-        "UPDATE subscriptions SET status='canceled',updated_at=? WHERE order_id=? AND status IN ('active','suspended')",
-      )
-      .run(nowIso, order.id);
-
-    logActivity(
+  const nowIso = new Date().toISOString();
+  const retailRub = order.retail_amount ?? order.amount;
+  const refundKopecks = Math.max(0, retailRub * 100);
+  await batch(
+    sql.prepare("UPDATE orders SET status='failed',updated_at=? WHERE id=? AND status IN ('paid','provisioning')")
+      .bind(nowIso, order.id),
+    activityStatement(
       order.user_id,
       `Заказ отклонён, средства (${retailRub} ₽) возвращены на баланс: ${order.title}`,
-    );
-    logAudit(order.user_id, "order.refunded", "order", order.id, {
+      true,
+    ),
+    auditStatement(order.user_id, "order.refunded", "order", order.id, {
       reason,
       refundKopecks,
-      balanceRubAfter: ledgerBalanceRub(order.user_id),
-    });
-  });
+    }, true),
+    sql
+      .prepare(
+        "INSERT INTO ledger_entries (id,user_id,direction,amount_kopecks,kind,reference_type,reference_id,idempotency_key,note,created_at) SELECT ?,?,?,?,?,?,?,?,?,? WHERE changes()>0 AND ?>0 ON CONFLICT(user_id,idempotency_key) DO NOTHING",
+      )
+      .bind(
+        randomUUID(),
+        order.user_id,
+        "credit",
+        refundKopecks,
+        "refund",
+        "order",
+        order.id,
+        `refund:order:${order.id}`,
+        `Возврат за заказ: ${order.title}`,
+        nowIso,
+        refundKopecks,
+      ),
+    sql
+    .prepare(
+      "UPDATE subscriptions SET status='canceled',updated_at=? WHERE order_id IN (SELECT id FROM orders WHERE id=? AND status='failed') AND status IN ('active','suspended')",
+    )
+    .bind(nowIso, order.id),
+  );
 }
 
-function persistPayloadProgress(
+async function persistPayloadProgress(
   jobId: string,
   orderId: string,
   payload: Record<string, unknown>,
 ) {
   const json = JSON.stringify(payload);
   const nowIso = new Date().toISOString();
-  transaction(() => {
+  await batch(
     db()
       .prepare(
         "UPDATE provisioning_jobs SET payload_json=?,updated_at=? WHERE id=?",
       )
-      .run(json, nowIso, jobId);
+      .bind(json, nowIso, jobId),
     db()
       .prepare("UPDATE orders SET provider_payload=?,updated_at=? WHERE id=?")
-      .run(json, nowIso, orderId);
-  });
+      .bind(json, nowIso, orderId),
+  );
 }
 
 async function resolveTimewebSshKeyIds(
@@ -303,7 +296,7 @@ async function resolveTimewebSshKeyIds(
   const ids = localKeyIds.filter((item): item is string => typeof item === "string");
   if (!ids.length) return [];
 
-  const rows = db()
+  const rows = await db()
     .prepare(
       `SELECT id,name,public_key,tw_ssh_key_id FROM ssh_keys WHERE user_id=? AND id IN (${ids.map(() => "?").join(",")})`,
     )
@@ -325,7 +318,7 @@ async function resolveTimewebSshKeyIds(
       row.public_key,
       false,
     );
-    db()
+    await db()
       .prepare("UPDATE ssh_keys SET tw_ssh_key_id=? WHERE id=? AND user_id=?")
       .run(created.id, row.id, userId);
     resolved.push(created.id);
@@ -338,7 +331,7 @@ async function provisionVpsJob(
   order: LocalOrderRow,
   payload: Record<string, unknown>,
 ) {
-  const userRow = db()
+  const userRow = await db()
     .prepare("SELECT name FROM users WHERE id=?")
     .get(job.user_id) as { name: string } | undefined;
   const projectId = await ensureUserTimewebProject(
@@ -370,7 +363,7 @@ async function provisionVpsJob(
       comment: `kc-order:${order.id}`,
     });
     payload.twServerId = server.id;
-    persistPayloadProgress(job.id, order.id, payload);
+    await persistPayloadProgress(job.id, order.id, payload);
   }
 
   const serviceStatus = mapTimewebServerStatus(server.status);
@@ -390,87 +383,83 @@ async function provisionVpsJob(
     twStatus: server.status,
   };
 
-  let serviceId = "";
-  transaction(() => {
-    const sql = db();
-    const existing = sql
+  const sql = db();
+  const existing = await sql
+    .prepare(
+      "SELECT id FROM services WHERE user_id=? AND kind='vps' AND tw_resource_id=?",
+    )
+    .get(job.user_id, String(server.id)) as { id: string } | undefined;
+  const serviceId = existing?.id ?? randomUUID();
+
+  const serviceWrite = existing
+    ? sql
       .prepare(
-        "SELECT id FROM services WHERE user_id=? AND kind='vps' AND tw_resource_id=?",
+        "UPDATE services SET status=?,details=?,address=?,tw_project_id=?,metadata_json=? WHERE id=? AND user_id=?",
       )
-      .get(job.user_id, String(server.id)) as { id: string } | undefined;
-    serviceId = existing?.id ?? randomUUID();
+      .bind(
+        serviceStatus,
+        details,
+        ipAddress,
+        projectId,
+        JSON.stringify(metadata),
+        serviceId,
+        job.user_id,
+      )
+    : sql
+      .prepare(
+        "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)",
+      )
+      .bind(
+        serviceId,
+        job.user_id,
+        "vps",
+        server.name || String(payload.name),
+        serviceStatus,
+        order.retail_amount ?? order.amount,
+        renewalIso,
+        details,
+        ipAddress,
+        String(server.id),
+        projectId,
+        order.cost_amount ?? order.amount,
+        JSON.stringify(metadata),
+      );
 
-    if (existing) {
-      sql
-        .prepare(
-          "UPDATE services SET status=?,details=?,address=?,tw_project_id=?,metadata_json=? WHERE id=? AND user_id=?",
-        )
-        .run(
-          serviceStatus,
-          details,
-          ipAddress,
-          projectId,
-          JSON.stringify(metadata),
-          serviceId,
-          job.user_id,
-        );
-    } else {
-      sql
-        .prepare(
-          "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)",
-        )
-        .run(
-          serviceId,
-          job.user_id,
-          "vps",
-          server.name || String(payload.name),
-          serviceStatus,
-          order.retail_amount ?? order.amount,
-          renewalIso,
-          details,
-          ipAddress,
-          String(server.id),
-          projectId,
-          order.cost_amount ?? order.amount,
-          JSON.stringify(metadata),
-        );
-    }
-
+  await batch(
+    serviceWrite,
+    ...(server.root_pass || server.vnc_pass ? [serviceCredentialsStatement(serviceId, job.user_id, {
+      rootPass: server.root_pass,
+      vncPass: server.vnc_pass,
+    })] : []),
     sql
       .prepare("UPDATE subscriptions SET service_id=?,updated_at=? WHERE order_id=?")
-      .run(serviceId, new Date().toISOString(), order.id);
+      .bind(serviceId, new Date().toISOString(), order.id),
     sql
       .prepare("UPDATE orders SET status=?,updated_at=? WHERE id=?")
-      .run(
+      .bind(
         serviceStatus === "running" ? "active" : "provisioning",
         new Date().toISOString(),
         order.id,
-      );
+      ),
     sql
       .prepare(
         "UPDATE provisioning_jobs SET status='done',last_error=NULL,updated_at=? WHERE id=?",
       )
-      .run(new Date().toISOString(), job.id);
+      .bind(new Date().toISOString(), job.id),
 
-    logActivity(
+    activityStatement(
       job.user_id,
       serviceStatus === "running"
         ? `Сервер ${server.name} создан и готов к работе`
         : `Сервер ${server.name} устанавливается`,
-    );
-    logAudit(job.user_id, "vps.provisioned", "service", serviceId, {
+    ),
+    auditStatement(job.user_id, "vps.provisioned", "service", serviceId, {
       orderId: order.id,
       twServerId: server.id,
       status: server.status,
-    });
-  });
+    }),
 
-  if (server.root_pass || server.vnc_pass) {
-    saveServiceCredentials(serviceId, job.user_id, {
-      rootPass: server.root_pass,
-      vncPass: server.vnc_pass,
-    });
-  }
+  );
 
   return { serviceId, status: serviceStatus };
 }
@@ -490,11 +479,16 @@ async function provisionDomainJob(
   const years = Number(payload.years || 1);
   const isWhoisPrivacy = Boolean(payload.isWhoisPrivacy);
 
+  if (action === "prolong" && !await db()
+    .prepare("SELECT id FROM services WHERE user_id=? AND kind='domain' AND tw_resource_id=?")
+    .get(job.user_id, ascii)) {
+    throw new FatalProvisioningError("Домен не найден в вашем кабинете.");
+  }
   let twPersonId: number | undefined;
   let localPersonId =
     typeof payload.personId === "string" ? payload.personId : "";
   if (!localPersonId && action !== "transfer") {
-    const latest = db()
+    const latest = await db()
       .prepare(
         "SELECT id FROM domain_persons WHERE user_id=? ORDER BY created_at DESC LIMIT 1",
       )
@@ -545,7 +539,7 @@ async function provisionDomainJob(
             });
 
     payload.twRequestId = req.id;
-    persistPayloadProgress(job.id, order.id, payload);
+    await persistPayloadProgress(job.id, order.id, payload);
   }
 
   const requestId = Number(payload.twRequestId);
@@ -564,7 +558,7 @@ async function provisionDomainJob(
           },
     );
     payload.paidUpstream = true;
-    persistPayloadProgress(job.id, order.id, payload);
+    await persistPayloadProgress(job.id, order.id, payload);
   }
 
   const [domainInfo, reqInfo, nsEntries] = await Promise.all([
@@ -604,82 +598,81 @@ async function provisionDomainJob(
     isWhoisPrivacy,
   };
 
-  let serviceId = "";
-  transaction(() => {
-    const sql = db();
-    const existing = sql
+  const sql = db();
+  const existing = await sql
+    .prepare(
+      "SELECT id,renewal FROM services WHERE user_id=? AND kind='domain' AND tw_resource_id=?",
+    )
+    .get(job.user_id, ascii) as { id: string; renewal: string } | undefined;
+  const serviceId = existing?.id ?? randomUUID();
+
+  const serviceWrite = existing
+    ? sql
       .prepare(
-        "SELECT id,renewal FROM services WHERE user_id=? AND kind='domain' AND tw_resource_id=?",
+        "UPDATE services SET status=?,renewal=?,details=?,metadata_json=? WHERE id=? AND user_id=?",
       )
-      .get(job.user_id, ascii) as { id: string; renewal: string } | undefined;
-    serviceId = existing?.id ?? randomUUID();
+      .bind(
+        status,
+        renewalIso,
+        nsDetails,
+        JSON.stringify(metadata),
+        serviceId,
+        job.user_id,
+      )
+    : sql
+      .prepare(
+        "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,1,?,NULL,?,?)",
+      )
+      .bind(
+        serviceId,
+        job.user_id,
+        "domain",
+        displayName,
+        status,
+        order.retail_amount ?? order.amount,
+        renewalIso,
+        nsDetails,
+        "",
+        ascii,
+        order.cost_amount ?? order.amount,
+        JSON.stringify(metadata),
+      );
 
-    if (existing) {
-      sql
-        .prepare(
-          "UPDATE services SET status=?,renewal=?,details=?,metadata_json=? WHERE id=? AND user_id=?",
-        )
-        .run(
-          status,
-          renewalIso,
-          nsDetails,
-          JSON.stringify(metadata),
-          serviceId,
-          job.user_id,
-        );
-    } else {
-      sql
-        .prepare(
-          "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,1,?,NULL,?,?)",
-        )
-        .run(
-          serviceId,
-          job.user_id,
-          "domain",
-          displayName,
-          status,
-          order.retail_amount ?? order.amount,
-          renewalIso,
-          nsDetails,
-          "",
-          ascii,
-          order.cost_amount ?? order.amount,
-          JSON.stringify(metadata),
-        );
-    }
-
+  await batch(
+    serviceWrite,
     sql
       .prepare("UPDATE subscriptions SET service_id=?,updated_at=? WHERE order_id=?")
-      .run(serviceId, new Date().toISOString(), order.id);
+      .bind(serviceId, new Date().toISOString(), order.id),
     sql
       .prepare("UPDATE orders SET status=?,updated_at=? WHERE id=?")
-      .run(
+      .bind(
         status === "active" ? "active" : "provisioning",
         new Date().toISOString(),
         order.id,
-      );
+      ),
     sql
       .prepare(
         "UPDATE provisioning_jobs SET status='done',last_error=NULL,updated_at=? WHERE id=?",
       )
-      .run(new Date().toISOString(), job.id);
+      .bind(new Date().toISOString(), job.id),
 
-    logActivity(
+    activityStatement(
       job.user_id,
       action === "prolong"
         ? `Домен ${displayName} продлён`
         : status === "active"
           ? `Домен ${displayName} зарегистрирован и активен`
           : `Заявка на домен ${displayName} оплачена и обрабатывается`,
-    );
-    logAudit(job.user_id, "domain.provisioned", "service", serviceId, {
+    ),
+    auditStatement(job.user_id, "domain.provisioned", "service", serviceId, {
       orderId: order.id,
       action,
       fqdn: ascii,
       requestId,
       status,
-    });
-  });
+    }),
+
+  );
 
   return { serviceId, status };
 }
@@ -697,40 +690,29 @@ function isRetryableProvisioningError(error: unknown): boolean {
 }
 
 export async function processSingleProvisioningJob(jobId: string) {
-  if (!timewebToken()) {
-    return { skipped: true as const, reason: "no_token" };
+  if (!salesEnabled() || !timewebToken()) {
+    return { skipped: true as const, reason: "provider_unavailable" };
   }
 
   const sql = db();
-  const claimed = transaction(() => {
-    const row = sql
-      .prepare(
-        "SELECT id,order_id,user_id,kind,payload_json,status,attempts FROM provisioning_jobs WHERE id=?",
-      )
-      .get(jobId) as ProvisioningJobRow | undefined;
-    if (!row || (row.status !== "queued" && row.status !== "retry")) {
-      return null;
-    }
-    const upd = sql
-      .prepare(
-        "UPDATE provisioning_jobs SET status='running',updated_at=? WHERE id=? AND status IN ('queued','retry')",
-      )
-      .run(new Date().toISOString(), row.id);
-    return upd.changes === 1 ? row : null;
-  });
+  const claimed = await sql
+    .prepare(
+      "UPDATE provisioning_jobs SET status='running',updated_at=? WHERE id=? AND status IN ('queued','retry') AND next_run_at<=? RETURNING id,order_id,user_id,kind,payload_json,status,attempts",
+    )
+    .get(new Date().toISOString(), jobId, Date.now()) as ProvisioningJobRow | undefined;
 
   if (!claimed) {
     return { skipped: true as const, reason: "not_claimable" };
   }
 
-  const order = sql
+  const order = await sql
     .prepare(
       "SELECT id,user_id,title,amount,status,cost_amount,retail_amount,provider_payload FROM orders WHERE id=?",
     )
     .get(claimed.order_id) as LocalOrderRow | undefined;
 
   if (!order || (order.status !== "paid" && order.status !== "provisioning")) {
-    sql
+    await sql
       .prepare(
         "UPDATE provisioning_jobs SET status='failed',last_error='Order is not payable',updated_at=? WHERE id=?",
       )
@@ -746,7 +728,7 @@ export async function processSingleProvisioningJob(jobId: string) {
   }
 
   if (order.status === "paid") {
-    sql
+    await sql
       .prepare("UPDATE orders SET status='provisioning',updated_at=? WHERE id=?")
       .run(new Date().toISOString(), order.id);
   }
@@ -758,7 +740,7 @@ export async function processSingleProvisioningJob(jobId: string) {
     } else if (claimed.kind === "vps") {
       result = await provisionVpsJob(claimed, order, payload);
     } else {
-      const userRow = db()
+      const userRow = await db()
         .prepare("SELECT name FROM users WHERE id=?")
         .get(claimed.user_id) as { name: string } | undefined;
       result = await provisionInfraJob({
@@ -781,9 +763,21 @@ export async function processSingleProvisioningJob(jobId: string) {
     const nextAttempts = claimed.attempts + 1;
     const nowIso = new Date().toISOString();
 
+    if (error instanceof TimewebApiError && error.outcomeUnknown) {
+      await batch(
+        sql.prepare("UPDATE provisioning_jobs SET status='needs_review',attempts=?,last_error=?,updated_at=? WHERE id=?")
+          .bind(nextAttempts, error.errorCode, nowIso, claimed.id),
+        auditStatement(order.user_id, "provisioning.needs_review", "order", order.id, {
+          responseId: error.responseId,
+          code: error.errorCode,
+        }),
+      );
+      return { ok: false as const, retryScheduled: false, error: "Проверяем выполнение заказа у провайдера." };
+    }
+
     if (retryable && nextAttempts < MAX_ATTEMPTS) {
       const backoffMs = 5_000 * 2 ** claimed.attempts;
-      sql
+      await sql
         .prepare(
           "UPDATE provisioning_jobs SET status='retry',attempts=?,last_error=?,next_run_at=?,updated_at=? WHERE id=?",
         )
@@ -791,7 +785,7 @@ export async function processSingleProvisioningJob(jobId: string) {
       return { ok: false as const, retryScheduled: true, error: msg };
     }
 
-    sql
+    await sql
       .prepare(
         "UPDATE provisioning_jobs SET status='failed',attempts=?,last_error=?,updated_at=? WHERE id=?",
       )
@@ -803,11 +797,10 @@ export async function processSingleProvisioningJob(jobId: string) {
       Boolean(payload.twResourceId) ||
       Boolean(payload.paidUpstream);
     if (!alreadyCreatedUpstream) {
-      refundOrderIfNeeded(order.id, msg);
+      await refundOrderIfNeeded(order.id, msg);
     } else {
-      logAudit(order.user_id, "provisioning.failed_after_upstream", "order", order.id, {
+      await logAudit(order.user_id, "provisioning.failed_after_upstream", "order", order.id, {
         error: msg,
-        payload,
       });
     }
     return { ok: false as const, retryScheduled: false, error: msg };
@@ -815,10 +808,14 @@ export async function processSingleProvisioningJob(jobId: string) {
 }
 
 export async function processProvisioningQueue(limit = 20) {
-  if (!timewebToken()) {
+  if (!salesEnabled() || !timewebToken()) {
     return { processed: 0, succeeded: 0, retrying: 0, failed: 0 };
   }
-  const due = db()
+  // An interrupted job may have changed the provider before persisting progress.
+  const stalled = await db().prepare(
+    "UPDATE provisioning_jobs SET status='needs_review',last_error='Worker interrupted',updated_at=? WHERE status='running' AND updated_at<?",
+  ).run(new Date().toISOString(), new Date(Date.now() - 10 * 60_000).toISOString());
+  const due = await db()
     .prepare(
       "SELECT id FROM provisioning_jobs WHERE status IN ('queued','retry') AND next_run_at<=? ORDER BY created_at ASC LIMIT ?",
     )
@@ -833,19 +830,19 @@ export async function processProvisioningQueue(limit = 20) {
     else if ("retryScheduled" in res && res.retryScheduled) retrying++;
     else if (!("skipped" in res && res.skipped)) failed++;
   }
-  return { processed: due.length, succeeded, retrying, failed };
+  return { processed: due.length, succeeded, retrying, failed, needsReview: stalled.changes };
 }
 
 export async function syncServiceFromProvider(serviceId: string, userId?: string) {
   if (!timewebToken()) return null;
 
   const row = (userId
-    ? db()
+    ? await db()
         .prepare(
           "SELECT id,user_id,kind,name,status,renewal,details,address,tw_resource_id,metadata_json FROM services WHERE id=? AND user_id=?",
         )
         .get(serviceId, userId)
-    : db()
+    : await db()
         .prepare(
           "SELECT id,user_id,kind,name,status,renewal,details,address,tw_resource_id,metadata_json FROM services WHERE id=?",
         )
@@ -900,33 +897,30 @@ export async function syncServiceFromProvider(serviceId: string, userId?: string
       twStatus: server.status,
     };
 
-    transaction(() => {
+    await batch(
       db()
         .prepare(
           "UPDATE services SET status=?,address=?,details=?,metadata_json=? WHERE id=?",
         )
-        .run(
+        .bind(
           nextStatus,
           nextAddress,
           nextDetails,
           JSON.stringify(nextMeta),
           row.id,
-        );
-      if (typeof metadata.orderId === "string" && nextStatus === "running") {
+        ),
+      ...(typeof metadata.orderId === "string" && nextStatus === "running" ? [
         db()
           .prepare(
             "UPDATE orders SET status='active',updated_at=? WHERE id=? AND status='provisioning'",
           )
-          .run(new Date().toISOString(), metadata.orderId);
-      }
-    });
-
-    if (server.root_pass || server.vnc_pass) {
-      saveServiceCredentials(row.id, row.user_id, {
+          .bind(new Date().toISOString(), metadata.orderId),
+      ] : []),
+      ...(server.root_pass || server.vnc_pass ? [serviceCredentialsStatement(row.id, row.user_id, {
         rootPass: server.root_pass,
         vncPass: server.vnc_pass,
-      });
-    }
+      })] : []),
+    );
 
     return {
       serviceId: row.id,
@@ -954,34 +948,30 @@ export async function syncServiceFromProvider(serviceId: string, userId?: string
     paidTill: domainInfo.paid_till,
   };
 
-  transaction(() => {
+  await batch(
     db()
       .prepare(
         "UPDATE services SET status=?,details=?,renewal=?,auto_renew=?,metadata_json=? WHERE id=?",
       )
-      .run(
+      .bind(
         nextStatus,
         nextDetails,
         nextRenewal,
         domainInfo.is_autoprolong_enabled ? 1 : 0,
         JSON.stringify(nextMeta),
         row.id,
-      );
-    if (typeof metadata.orderId === "string") {
-      if (nextStatus === "active") {
-        db()
+      ),
+    ...(typeof metadata.orderId === "string" && nextStatus === "active" ? [
+      db()
           .prepare(
             "UPDATE orders SET status='active',updated_at=? WHERE id=? AND status='provisioning'",
           )
-          .run(new Date().toISOString(), metadata.orderId);
-      } else if (nextStatus === "error") {
-        refundOrderIfNeeded(
-          metadata.orderId,
-          `Upstream domain request failed: ${domainInfo.request_status}`,
-        );
-      }
-    }
-  });
+        .bind(new Date().toISOString(), metadata.orderId),
+    ] : []),
+  );
+  if (typeof metadata.orderId === "string" && nextStatus === "error") {
+    await refundOrderIfNeeded(metadata.orderId, `Upstream domain request failed: ${domainInfo.request_status}`);
+  }
 
   return {
     serviceId: row.id,
@@ -993,7 +983,7 @@ export async function syncServiceFromProvider(serviceId: string, userId?: string
 
 export async function syncPendingServices(limit = 30) {
   if (!timewebToken()) return { checked: 0, updated: 0 };
-  const rows = db()
+  const rows = await db()
     .prepare(
       "SELECT id FROM services WHERE tw_resource_id IS NOT NULL AND status IN ('provisioning','reinstalling') LIMIT ?",
     )

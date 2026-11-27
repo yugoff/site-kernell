@@ -3,11 +3,12 @@ import { randomBytes, randomUUID } from "node:crypto";
 import type { Service, ServiceKind } from "./catalog";
 import {
   db,
-  logActivity,
-  logAudit,
   saveServiceCredentials,
-  transaction,
+  serviceCredentialsStatement,
   type StoredServiceCredentials,
+  batch,
+  activityStatement,
+  auditStatement,
 } from "./database";
 import {
   createBalancer,
@@ -46,7 +47,7 @@ export type InfraJobContext = {
     jobId: string,
     orderId: string,
     payload: Record<string, unknown>,
-  ) => void;
+  ) => Promise<void>;
 };
 
 function mapUpstreamStatus(raw: string | undefined): Service["status"] {
@@ -73,7 +74,7 @@ function dbIpAddress(
   return "";
 }
 
-function finalizeProvisionedService(params: {
+async function finalizeProvisionedService(params: {
   ctx: InfraJobContext;
   twResourceId: string;
   twProjectId: number | null;
@@ -88,80 +89,75 @@ function finalizeProvisionedService(params: {
   const { ctx } = params;
   const renewalIso = new Date(Date.now() + 30 * 86_400_000).toISOString();
   const isReady = params.status === "running" || params.status === "active";
-  let serviceId = "";
+  const sql = db();
+  const existing = await sql
+    .prepare(
+      "SELECT id FROM services WHERE user_id=? AND kind=? AND tw_resource_id=?",
+    )
+    .get(ctx.userId, ctx.kind, params.twResourceId) as
+    | { id: string }
+    | undefined;
+  const serviceId = existing?.id ?? randomUUID();
 
-  transaction(() => {
-    const sql = db();
-    const existing = sql
+  const serviceWrite = existing
+    ? sql
       .prepare(
-        "SELECT id FROM services WHERE user_id=? AND kind=? AND tw_resource_id=?",
+        "UPDATE services SET status=?,details=?,address=?,tw_project_id=?,metadata_json=? WHERE id=? AND user_id=?",
       )
-      .get(ctx.userId, ctx.kind, params.twResourceId) as
-      | { id: string }
-      | undefined;
-    serviceId = existing?.id ?? randomUUID();
+      .bind(
+        params.status,
+        params.details,
+        params.address,
+        params.twProjectId,
+        JSON.stringify(params.metadata),
+        serviceId,
+        ctx.userId,
+      )
+    : sql
+      .prepare(
+        "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)",
+      )
+      .bind(
+        serviceId,
+        ctx.userId,
+        ctx.kind,
+        params.name,
+        params.status,
+        ctx.retailAmount,
+        renewalIso,
+        params.details,
+        params.address,
+        params.twResourceId,
+        params.twProjectId,
+        ctx.costAmount,
+        JSON.stringify(params.metadata),
+      );
 
-    if (existing) {
-      sql
-        .prepare(
-          "UPDATE services SET status=?,details=?,address=?,tw_project_id=?,metadata_json=? WHERE id=? AND user_id=?",
-        )
-        .run(
-          params.status,
-          params.details,
-          params.address,
-          params.twProjectId,
-          JSON.stringify(params.metadata),
-          serviceId,
-          ctx.userId,
-        );
-    } else {
-      sql
-        .prepare(
-          "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,?,?,?,?,?,?,?,1,?,?,?,?)",
-        )
-        .run(
-          serviceId,
-          ctx.userId,
-          ctx.kind,
-          params.name,
-          params.status,
-          ctx.retailAmount,
-          renewalIso,
-          params.details,
-          params.address,
-          params.twResourceId,
-          params.twProjectId,
-          ctx.costAmount,
-          JSON.stringify(params.metadata),
-        );
-    }
-
+  await batch(
+    serviceWrite,
+    ...(params.credentials ? [serviceCredentialsStatement(serviceId, ctx.userId, params.credentials)] : []),
     sql
       .prepare(
         "UPDATE subscriptions SET service_id=?,updated_at=? WHERE order_id=?",
       )
-      .run(serviceId, new Date().toISOString(), ctx.orderId);
+      .bind(serviceId, new Date().toISOString(), ctx.orderId),
     sql
       .prepare("UPDATE orders SET status=?,updated_at=? WHERE id=?")
-      .run(isReady ? "active" : "provisioning", new Date().toISOString(), ctx.orderId);
+      .bind(isReady ? "active" : "provisioning", new Date().toISOString(), ctx.orderId),
     sql
       .prepare(
         "UPDATE provisioning_jobs SET status='done',last_error=NULL,updated_at=? WHERE id=?",
       )
-      .run(new Date().toISOString(), ctx.jobId);
+      .bind(new Date().toISOString(), ctx.jobId),
 
-    logActivity(ctx.userId, params.activityMessage);
-    logAudit(ctx.userId, `${ctx.kind}.provisioned`, "service", serviceId, {
+    activityStatement(ctx.userId, params.activityMessage),
+    auditStatement(ctx.userId, `${ctx.kind}.provisioned`, "service", serviceId, {
       orderId: ctx.orderId,
       twResourceId: params.twResourceId,
       status: params.status,
-    });
-  });
+    }),
 
-  if (params.credentials) {
-    saveServiceCredentials(serviceId, ctx.userId, params.credentials);
-  }
+  );
 
   return { serviceId, status: params.status };
 }
@@ -179,7 +175,7 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
         : randomBytes(12).toString("base64url") + "A1!";
     if (!existingTwId && !payload.generatedPassword) {
       payload.generatedPassword = dbPassword;
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
     const cluster = existingTwId
@@ -198,12 +194,12 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(cluster.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
     const host = dbIpAddress(cluster.networks);
     const status = mapUpstreamStatus(cluster.status);
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(cluster.id),
       twProjectId: projectId,
@@ -243,11 +239,11 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(bucket.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
     const status = mapUpstreamStatus(bucket.status);
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(bucket.id),
       twProjectId: projectId,
@@ -296,7 +292,7 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(cluster.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
     const status = mapUpstreamStatus(cluster.status);
@@ -305,7 +301,7 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
         ? await fetchK8sKubeconfig(cluster.id).catch(() => null)
         : null;
 
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(cluster.id),
       twProjectId: projectId,
@@ -344,10 +340,10 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(balancer.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(balancer.id),
       twProjectId: projectId,
@@ -377,10 +373,10 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(router.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(router.id),
       twProjectId: projectId,
@@ -404,10 +400,10 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(drive.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(drive.id),
       twProjectId: null,
@@ -448,10 +444,10 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(cdn.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(cdn.id),
       twProjectId: projectId,
@@ -478,10 +474,10 @@ export async function provisionInfraJob(ctx: InfraJobContext) {
 
     if (!existingTwId) {
       payload.twResourceId = String(fip.id);
-      ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
+      await ctx.persistPayloadProgress(ctx.jobId, ctx.orderId, payload);
     }
 
-    return finalizeProvisionedService({
+    return await finalizeProvisionedService({
       ctx,
       twResourceId: String(fip.id),
       twProjectId: null,
@@ -532,7 +528,7 @@ export async function syncInfraService(row: {
     nextAddress = bucket.hostname || nextAddress;
     nextDetails = `S3 ${bucket.type === "public" ? "Публичный" : "Приватный"} · ${bucket.storage_class || "hot"}|${bucket.location}|${bucket.hostname}`;
     nextMeta.bucketType = bucket.type;
-    saveServiceCredentials(row.id, row.user_id, {
+    await saveServiceCredentials(row.id, row.user_id, {
       s3AccessKey: bucket.access_key,
       s3SecretKey: bucket.secret_key,
       s3Hostname: bucket.hostname,
@@ -543,7 +539,7 @@ export async function syncInfraService(row: {
     if (nextStatus === "running" || nextStatus === "active") {
       const kubeconfig = await fetchK8sKubeconfig(cluster.id).catch(() => null);
       if (kubeconfig) {
-        saveServiceCredentials(row.id, row.user_id, { kubeconfig });
+        await saveServiceCredentials(row.id, row.user_id, { kubeconfig });
       }
     }
   } else if (row.kind === "balancer") {
@@ -570,23 +566,23 @@ export async function syncInfraService(row: {
     nextMeta.boundResourceId = fip.resource_id ?? null;
   }
 
-  transaction(() => {
+  await batch(
     db()
       .prepare(
         "UPDATE services SET status=?,address=?,details=?,metadata_json=? WHERE id=?",
       )
-      .run(nextStatus, nextAddress, nextDetails, JSON.stringify(nextMeta), row.id);
-    if (
+      .bind(nextStatus, nextAddress, nextDetails, JSON.stringify(nextMeta), row.id),
+    ...(
       typeof metadata.orderId === "string" &&
       (nextStatus === "running" || nextStatus === "active")
-    ) {
+    ? [
       db()
         .prepare(
           "UPDATE orders SET status='active',updated_at=? WHERE id=? AND status='provisioning'",
         )
-        .run(new Date().toISOString(), metadata.orderId);
-    }
-  });
+        .bind(new Date().toISOString(), metadata.orderId),
+    ] : []),
+  );
 
   return { serviceId: row.id, status: nextStatus, address: nextAddress };
 }

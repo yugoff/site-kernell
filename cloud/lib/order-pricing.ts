@@ -210,7 +210,7 @@ export async function resolveVpsOrderSpec(
           .filter(Boolean),
       ),
     ).slice(0, 10);
-    const rows = db()
+    const rows = await db()
       .prepare(
         `SELECT id FROM ssh_keys WHERE user_id=? AND id IN (${uniqueIds.map(() => "?").join(",")})`,
       )
@@ -311,6 +311,11 @@ export async function resolveDomainOrderSpec(
         : "Введите корректное доменное имя в поддерживаемой зоне.",
     );
   }
+  if (action === "prolong" && !await db()
+    .prepare("SELECT id FROM services WHERE user_id=? AND kind='domain' AND tw_resource_id=?")
+    .get(userId, ascii)) {
+    throw new ApiError(404, "Домен не найден в вашем кабинете.");
+  }
 
   let period = typeof body.period === "string" ? body.period.trim().toUpperCase() : "P1Y";
   let years = 1;
@@ -352,7 +357,7 @@ export async function resolveDomainOrderSpec(
   let personId: string | null = null;
   if (typeof body.personId === "string" && body.personId.trim()) {
     const candidateId = body.personId.trim();
-    const row = db()
+    const row = await db()
       .prepare("SELECT id FROM domain_persons WHERE id=? AND user_id=?")
       .get(candidateId, userId) as { id: string } | undefined;
     if (!row) {
@@ -669,7 +674,7 @@ export async function resolveInfraOrderSpec(
       );
     }
     const rawCost = Number(preset.cost_per_gb || 1) * sizeGb;
-    const priced = calculateRetailPrice(rawCost, "network_drives", String(preset.id));
+    const priced = await calculateRetailPrice(rawCost, "network_drives", String(preset.id));
     return {
       kind: "network_drive",
       title: `Сетевой диск ${name} (${sizeGb} ГБ)`,
@@ -688,7 +693,7 @@ export async function resolveInfraOrderSpec(
     let originPort = Number(body.originPort ?? 443);
 
     if (typeof body.storageServiceId === "string" && body.storageServiceId.trim()) {
-      const s3 = db()
+      const s3 = await db()
         .prepare(
           "SELECT tw_resource_id FROM services WHERE id=? AND user_id=? AND kind='s3'",
         )
@@ -737,7 +742,7 @@ export async function resolveInfraOrderSpec(
         : "msk-1";
     const isDdosGuard = Boolean(body.isDdosGuard);
     const costBase = isDdosGuard ? 250 : 150;
-    const priced = calculateRetailPrice(
+    const priced = await calculateRetailPrice(
       costBase,
       "floating_ips",
       isDdosGuard ? "ddos" : "standard",

@@ -158,8 +158,6 @@
 }
 
 .site-header + main .plan-recommendation {
-  background: var(--accent-light);
-  color: var(--accent);
   border-radius: var(--radius-md) var(--radius-md) 0 0;
 }
 

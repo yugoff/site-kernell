@@ -1,0 +1,13 @@
+CLOUD_SALES_ENABLED=false
+CLOUD_DEMO_ENABLED=true
+# Set to the local listening origin when testing email links or through a tunnel.
+# CLOUD_ORIGIN=http://127.0.0.1:3001
+# With Cloudflare Secrets in production. Leave blank for local tests of the public pages.
+# CLOUD_DATA_ENCRYPTION_KEY=
+# CLOUD_INTERNAL_SECRET=
+# TIMEWEB_TOKEN=
+# TIMEWEB_WEBHOOK_SECRET=
+# MAILER_WEBHOOK_URL=
+# MAILER_WEBHOOK_TOKEN=
+# YOOKASSA_SHOP_ID=
+# YOOKASSA_SECRET_KEY=

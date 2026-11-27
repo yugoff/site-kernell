@@ -8,7 +8,8 @@ import {
   jsonBody,
   rateLimit,
 } from "@cloud/lib/auth";
-import { db, logActivity, logAudit, transaction } from "@cloud/lib/database";
+import { db, batch, activityStatement, auditStatement } from "@cloud/lib/database";
+import { salesEnabled } from "@cloud/lib/sales";
 import {
   TimewebApiError,
   createFirewallGroup,
@@ -33,11 +34,11 @@ export async function POST(request: Request) {
         "Подтвердите email в разделе «Настройки» перед созданием ресурсов.",
       );
     }
-    if (!timewebToken()) {
+    if (!salesEnabled() || !timewebToken()) {
       throw new ApiError(503, "Управление облачной инфраструктурой пока недоступно.");
     }
 
-    rateLimit(`infra-free:${user.id}`, 20);
+    await rateLimit(`infra-free:${user.id}`, 20);
     const body = await jsonBody(request);
     const kind = body.kind;
     const name = typeof body.name === "string" ? body.name.trim() : "";
@@ -76,12 +77,12 @@ export async function POST(request: Request) {
       }
       const vpc = await createVpc({ name, subnet_v4: subnetV4, location });
       const id = randomUUID();
-      transaction(() => {
+      await batch(
         db()
           .prepare(
             "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,'vpc',?,'active',0,?,?,?,0,?,NULL,0,?)",
           )
-          .run(
+          .bind(
             id,
             user.id,
             vpc.name || name,
@@ -90,10 +91,10 @@ export async function POST(request: Request) {
             subnetV4,
             vpc.id,
             JSON.stringify({ subnetV4, location }),
-          );
-        logActivity(user.id, `Создана приватная сеть VPC ${name} (${subnetV4})`);
-        logAudit(user.id, "vpc.created", "service", id, { twResourceId: vpc.id });
-      });
+          ),
+        activityStatement(user.id, `Создана приватная сеть VPC ${name} (${subnetV4})`),
+        auditStatement(user.id, "vpc.created", "service", id, { twResourceId: vpc.id }),
+      );
       return Response.json({ ok: true, id, kind: "vpc" });
     }
 
@@ -104,12 +105,12 @@ export async function POST(request: Request) {
           : "";
       const group = await createFirewallGroup(name, description || undefined);
       const id = randomUUID();
-      transaction(() => {
+      await batch(
         db()
           .prepare(
             "INSERT INTO services (id,user_id,kind,name,status,price,renewal,details,address,auto_renew,tw_resource_id,tw_project_id,cost_price,metadata_json) VALUES (?,?,'firewall',?,'active',0,?,?,?,0,?,NULL,0,?)",
           )
-          .run(
+          .bind(
             id,
             user.id,
             group.name || name,
@@ -118,12 +119,12 @@ export async function POST(request: Request) {
             "",
             group.id,
             JSON.stringify({ description }),
-          );
-        logActivity(user.id, `Создана группа Firewall ${name}`);
-        logAudit(user.id, "firewall.created", "service", id, {
+          ),
+        activityStatement(user.id, `Создана группа Firewall ${name}`),
+        auditStatement(user.id, "firewall.created", "service", id, {
           twResourceId: group.id,
-        });
-      });
+        }),
+      );
       return Response.json({ ok: true, id, kind: "firewall" });
     }
 

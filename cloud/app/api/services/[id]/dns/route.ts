@@ -8,6 +8,7 @@ import {
   rateLimit,
 } from "@cloud/lib/auth";
 import { db, logActivity, logAudit } from "@cloud/lib/database";
+import { salesEnabled } from "@cloud/lib/sales";
 import {
   TimewebApiError,
   createDomainDnsRecord,
@@ -22,8 +23,8 @@ import {
 
 export const runtime = "nodejs";
 
-function ownedDomainService(userId: string, id: string) {
-  const service = db()
+async function ownedDomainService(userId: string, id: string) {
+  const service = await db()
     .prepare(
       "SELECT id,name,kind,tw_resource_id FROM services WHERE id=? AND user_id=?",
     )
@@ -181,8 +182,8 @@ export async function GET(
       throw new ApiError(400, "Редактор DNS-записей недоступен в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`dns-read:${user.id}`, 60);
-    const { fqdn } = ownedDomainService(user.id, id);
+    await rateLimit(`dns-read:${user.id}`, 60);
+    const { fqdn } = await ownedDomainService(user.id, id);
     const records = await fetchDomainDnsRecords(fqdn);
     return Response.json(
       { fqdn, records },
@@ -204,14 +205,17 @@ export async function POST(
       throw new ApiError(400, "Редактор DNS-записей недоступен в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`dns-write:${user.id}`, 60);
-    const { fqdn, name } = ownedDomainService(user.id, id);
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление DNS-записями у провайдера пока отключено.");
+    }
+    await rateLimit(`dns-write:${user.id}`, 60);
+    const { fqdn, name } = await ownedDomainService(user.id, id);
     const body = await jsonBody(request);
     const input = validateDnsInput(body);
     const targetFqdn = await resolveTargetFqdn(fqdn, body.subdomain);
     const record = await createDomainDnsRecord(targetFqdn, input);
-    logActivity(user.id, `Добавлена DNS-запись ${input.type} для ${name}`);
-    logAudit(user.id, "domain.dns_record_created", "service", id, {
+    await logActivity(user.id, `Добавлена DNS-запись ${input.type} для ${name}`);
+    await logAudit(user.id, "domain.dns_record_created", "service", id, {
       fqdn: targetFqdn,
       type: input.type,
       recordId: record.id,
@@ -241,21 +245,25 @@ export async function PATCH(
       throw new ApiError(400, "Редактор DNS-записей недоступен в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`dns-write:${user.id}`, 60);
-    const { fqdn, name } = ownedDomainService(user.id, id);
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление DNS-записями у провайдера пока отключено.");
+    }
+    await rateLimit(`dns-write:${user.id}`, 60);
+    const { fqdn, name } = await ownedDomainService(user.id, id);
     const body = await jsonBody(request);
     const recordId = Number(body.recordId);
     if (!Number.isInteger(recordId) || recordId <= 0) {
       throw new ApiError(400, "Укажите ID DNS-записи.");
     }
     const input = validateDnsInput(body);
-    const targetFqdn =
-      typeof body.targetFqdn === "string" && body.targetFqdn.endsWith(fqdn)
-        ? body.targetFqdn
-        : fqdn;
+    const target = typeof body.targetFqdn === "string" ? body.targetFqdn.trim().toLowerCase() : "";
+    if (target && target !== fqdn && !target.endsWith(`.${fqdn}`)) {
+      throw new ApiError(404, "Поддомен не найден.");
+    }
+    const targetFqdn = target || fqdn;
     const record = await updateDomainDnsRecord(targetFqdn, recordId, input);
-    logActivity(user.id, `Обновлена DNS-запись ${input.type} для ${name}`);
-    logAudit(user.id, "domain.dns_record_updated", "service", id, {
+    await logActivity(user.id, `Обновлена DNS-запись ${input.type} для ${name}`);
+    await logAudit(user.id, "domain.dns_record_updated", "service", id, {
       fqdn: targetFqdn,
       recordId,
     });
@@ -284,8 +292,11 @@ export async function DELETE(
       throw new ApiError(400, "Редактор DNS-записей недоступен в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`dns-write:${user.id}`, 60);
-    const { fqdn, name } = ownedDomainService(user.id, id);
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление DNS-записями у провайдера пока отключено.");
+    }
+    await rateLimit(`dns-write:${user.id}`, 60);
+    const { fqdn, name } = await ownedDomainService(user.id, id);
     const { searchParams } = new URL(request.url);
     const recordId = Number(searchParams.get("recordId"));
     if (!Number.isInteger(recordId) || recordId <= 0) {
@@ -297,8 +308,8 @@ export async function DELETE(
         ? targetFqdnParam
         : fqdn;
     await deleteDomainDnsRecord(targetFqdn, recordId);
-    logActivity(user.id, `Удалена DNS-запись #${recordId} для ${name}`);
-    logAudit(user.id, "domain.dns_record_deleted", "service", id, {
+    await logActivity(user.id, `Удалена DNS-запись #${recordId} для ${name}`);
+    await logAudit(user.id, "domain.dns_record_deleted", "service", id, {
       fqdn: targetFqdn,
       recordId,
     });

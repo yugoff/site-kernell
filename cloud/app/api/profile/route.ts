@@ -10,18 +10,19 @@ import {
   rateLimit,
   startSession,
 } from "@cloud/lib/auth";
-import { db, logActivity, transaction } from "@cloud/lib/database";
+import { activityStatement, batch, db } from "@cloud/lib/database";
 export const runtime = "nodejs";
 export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await apiUser();
     const body = await jsonBody(request);
-    rateLimit(`profile:${user.id}`, 12);
+    await rateLimit(`profile:${user.id}`, 12);
     const name = typeof body.name === "string" ? body.name.trim() : "";
     if (name.length < 2 || name.length > 70)
       throw new ApiError(400, "Введите имя от 2 до 70 символов.");
     let password: string | null = null;
+    let previousPassword: string | null = null;
     if (body.newPassword) {
       if (user.demo)
         throw new ApiError(
@@ -39,31 +40,29 @@ export async function POST(request: Request) {
           400,
           "Новый пароль должен содержать от 10 до 128 символов.",
         );
-      const stored = db()
+      const stored = await db()
         .prepare("SELECT password FROM users WHERE id=?")
         .get(user.id) as { password: string };
       if (!(await passwordMatches(body.currentPassword, stored.password)))
         throw new ApiError(400, "Текущий пароль указан неверно.");
       password = await hashPassword(body.newPassword);
+      previousPassword = stored.password;
     }
-    transaction(() => {
-      db().prepare("UPDATE users SET name=? WHERE id=?").run(name, user.id);
-      if (password) {
-        db()
-          .prepare("UPDATE users SET password=? WHERE id=?")
-          .run(password, user.id);
-        db().prepare("DELETE FROM sessions WHERE user_id=?").run(user.id);
-      }
-      logActivity(
-        user.id,
-        password
-          ? "Пароль изменён, остальные сессии завершены"
-          : "Профиль обновлён",
-      );
-    });
     if (password) {
+      const [updated] = await batch(
+        db().prepare("UPDATE users SET name=?,password=? WHERE id=? AND password=?")
+          .bind(name, password, user.id, previousPassword),
+        activityStatement(user.id, "Пароль изменён, остальные сессии завершены", true),
+        db().prepare("DELETE FROM sessions WHERE user_id=? AND changes()>0").bind(user.id),
+      );
+      if (!updated.meta.changes) throw new ApiError(409, "Пароль уже изменился. Войдите снова.");
       await endSession();
       await startSession({ ...user, name });
+    } else {
+      await batch(
+        db().prepare("UPDATE users SET name=? WHERE id=?").bind(name, user.id),
+        activityStatement(user.id, "Профиль обновлён", true),
+      );
     }
     return Response.json({ ok: true });
   } catch (error) {

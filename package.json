@@ -5,9 +5,13 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "dev:cloud": "next dev cloud --port 3001",
-    "build:cloud": "next build cloud --webpack",
-    "start:cloud": "node scripts/start-cloud.mjs",
+    "dev:cloud": "cd cloud && next dev --port 3001",
+    "build:cloud": "node scripts/cloud-workers.mjs build",
+    "start:cloud": "npm run preview:cloud",
+    "preview:cloud": "cd cloud && wrangler dev --local --port 3001",
+    "db:cloud:local": "cd cloud && wrangler d1 migrations apply DB --local",
+    "deploy:cloud": "node scripts/cloud-workers.mjs deploy",
+    "db:cloud:remote": "node scripts/cloud-workers.mjs migrate",
     "check:cloud": "tsc --noEmit -p cloud/tsconfig.json",
     "test:cloud": "node --test cloud/tests/integration.mjs",
     "start": "npx serve out",
@@ -24,11 +28,14 @@
     "tailwind-merge": "^2.5.5"
   },
   "devDependencies": {
+    "@cloudflare/workers-types": "5.20261125.1",
+    "@opennextjs/cloudflare": "1.20.19",
     "@tailwindcss/postcss": "^4.0.0",
     "@types/node": "^22.0.0",
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "tailwindcss": "^4.0.0",
-    "typescript": "^5.7.0"
+    "typescript": "^5.7.0",
+    "wrangler": "4.168.0"
   }
 }

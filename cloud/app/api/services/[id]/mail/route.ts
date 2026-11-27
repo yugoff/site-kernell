@@ -7,6 +7,7 @@ import {
   rateLimit,
 } from "@cloud/lib/auth";
 import { db, logActivity, logAudit } from "@cloud/lib/database";
+import { salesEnabled } from "@cloud/lib/sales";
 import {
   TimewebApiError,
   createDomainMailbox,
@@ -18,8 +19,8 @@ import {
 
 export const runtime = "nodejs";
 
-function ownedDomainFqdn(userId: string, serviceId: string) {
-  const row = db()
+async function ownedDomainFqdn(userId: string, serviceId: string) {
+  const row = await db()
     .prepare(
       "SELECT id,name,kind,tw_resource_id FROM services WHERE id=? AND user_id=?",
     )
@@ -56,8 +57,8 @@ export async function GET(
       throw new ApiError(400, "Почта недоступна в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`mail-read:${user.id}`, 60);
-    const { fqdn } = ownedDomainFqdn(user.id, id);
+    await rateLimit(`mail-read:${user.id}`, 60);
+    const { fqdn } = await ownedDomainFqdn(user.id, id);
     const rawMailboxes = await listDomainMailboxes(fqdn);
     // Strip upstream password field from list responses.
     const mailboxes = rawMailboxes.map((item) => ({
@@ -87,8 +88,11 @@ export async function POST(
       throw new ApiError(400, "Почта недоступна в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`mail-write:${user.id}`, 30);
-    const { fqdn, name } = ownedDomainFqdn(user.id, id);
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление корпоративной почтой пока отключено.");
+    }
+    await rateLimit(`mail-write:${user.id}`, 30);
+    const { fqdn, name } = await ownedDomainFqdn(user.id, id);
     const body = await jsonBody(request);
     const mailbox = validMailboxName(body.mailbox);
     const password = typeof body.password === "string" ? body.password : "";
@@ -111,8 +115,8 @@ export async function POST(
       ...(comment ? { comment } : {}),
     });
 
-    logActivity(user.id, `Создан почтовый ящик ${mailbox}@${name}`);
-    logAudit(user.id, "mail.mailbox_created", "service", id, { fqdn, mailbox });
+    await logActivity(user.id, `Создан почтовый ящик ${mailbox}@${name}`);
+    await logAudit(user.id, "mail.mailbox_created", "service", id, { fqdn, mailbox });
 
     return Response.json({
       ok: true,
@@ -149,8 +153,11 @@ export async function PATCH(
       throw new ApiError(400, "Почта недоступна в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`mail-write:${user.id}`, 30);
-    const { fqdn } = ownedDomainFqdn(user.id, id);
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление корпоративной почтой пока отключено.");
+    }
+    await rateLimit(`mail-write:${user.id}`, 30);
+    const { fqdn } = await ownedDomainFqdn(user.id, id);
     const body = await jsonBody(request);
     const mailbox = validMailboxName(body.mailbox);
     const password =
@@ -172,7 +179,7 @@ export async function PATCH(
       ...(comment !== undefined ? { comment } : {}),
       ...(ownerFullName !== undefined ? { owner_full_name: ownerFullName } : {}),
     });
-    logAudit(user.id, "mail.mailbox_updated", "service", id, { fqdn, mailbox });
+    await logAudit(user.id, "mail.mailbox_updated", "service", id, { fqdn, mailbox });
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof TimewebApiError) {
@@ -200,13 +207,16 @@ export async function DELETE(
       throw new ApiError(400, "Почта недоступна в деморежиме.");
     }
     const { id } = await context.params;
-    rateLimit(`mail-write:${user.id}`, 30);
-    const { fqdn, name } = ownedDomainFqdn(user.id, id);
+    if (!salesEnabled()) {
+      throw new ApiError(503, "Управление корпоративной почтой пока отключено.");
+    }
+    await rateLimit(`mail-write:${user.id}`, 30);
+    const { fqdn, name } = await ownedDomainFqdn(user.id, id);
     const { searchParams } = new URL(request.url);
     const mailbox = validMailboxName(searchParams.get("mailbox"));
     await deleteDomainMailbox(fqdn, mailbox);
-    logActivity(user.id, `Удалён почтовый ящик ${mailbox}@${name}`);
-    logAudit(user.id, "mail.mailbox_deleted", "service", id, { fqdn, mailbox });
+    await logActivity(user.id, `Удалён почтовый ящик ${mailbox}@${name}`);
+    await logAudit(user.id, "mail.mailbox_deleted", "service", id, { fqdn, mailbox });
     return Response.json({ ok: true });
   } catch (error) {
     if (error instanceof TimewebApiError) {

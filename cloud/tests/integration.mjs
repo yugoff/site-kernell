@@ -1,12 +1,47 @@
 import { after, before, describe, test } from "node:test";
 import assert from "node:assert/strict";
-import { spawn } from "node:child_process";
-import { mkdtemp, rm } from "node:fs/promises";
+import { execFile, spawn } from "node:child_process";
+import { mkdtemp, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { createServer as createHttpServer } from "node:http";
 import { createServer } from "node:net";
 import path from "node:path";
 import { setTimeout as delay } from "node:timers/promises";
+import { promisify } from "node:util";
+import { fileURLToPath } from "node:url";
+
+const exec = promisify(execFile);
+const cloudDirectory = fileURLToPath(new URL("../", import.meta.url));
+const wrangler = fileURLToPath(new URL("../../node_modules/wrangler/bin/wrangler.js", import.meta.url));
+
+function wranglerEnv(directory) {
+  return {
+    ...process.env,
+    WRANGLER_SEND_METRICS: "false",
+    CLOUDFLARE_LOAD_DEV_VARS_FROM_DOT_ENV: "true",
+    XDG_CONFIG_HOME: path.join(directory, ".config"),
+    WRANGLER_LOG_PATH: path.join(directory, "wrangler.log"),
+  };
+}
+
+async function startWorker(directory, port, variables) {
+  const state = path.join(directory, "d1");
+  const envFile = path.join(directory, "test.env");
+  const env = wranglerEnv(directory);
+  await writeFile(envFile, Object.entries(variables).map(([key, value]) => `${key}=${JSON.stringify(value)}`).join("\n"), { mode: 0o600 });
+  await exec(process.execPath, [wrangler, "d1", "migrations", "apply", "DB", "--local", "--persist-to", state], {
+    cwd: cloudDirectory,
+    env,
+  });
+  return spawn(process.execPath, [
+    wrangler, "dev", "--local", "--ip", "127.0.0.1", "--port", String(port),
+    "--persist-to", state, "--env-file", envFile, "--show-interactive-dev-session", "false", "--test-scheduled",
+  ], {
+    cwd: cloudDirectory,
+    env,
+    stdio: ["ignore", "pipe", "pipe"],
+  });
+}
 
 let child, directory, base, mailServer, yookassaServer;
 const deliveredMails = [];
@@ -91,26 +126,19 @@ before(async () => {
   const port = listener.address().port;
   await new Promise((resolve) => listener.close(resolve));
   base = `http://127.0.0.1:${port}`;
-  child = spawn(process.execPath, ["scripts/start-cloud.mjs"], {
-    cwd: process.cwd(),
-    env: {
-      ...process.env,
-      PORT: String(port),
-      CLOUD_HOSTNAME: "127.0.0.1",
-      CLOUD_DATABASE_PATH: path.join(directory, "test.sqlite"),
-      CLOUD_ORIGIN: base,
-      CLOUD_DEMO_ENABLED: "true",
-      CLOUD_DATA_ENCRYPTION_KEY:
-        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-      MAILER_WEBHOOK_URL: `http://127.0.0.1:${mailPort}/mail`,
-      YOOKASSA_SHOP_ID: "test-shop",
-      YOOKASSA_SECRET_KEY: "test-secret",
-      YOOKASSA_API_URL: `http://127.0.0.1:${ykPort}`,
-      YOOKASSA_VERIFY_WEBHOOK_IP: "true",
-      CLOUD_INTERNAL_SECRET: "test-internal-secret",
-      TIMEWEB_TOKEN: "",
-    },
-    stdio: ["ignore", "pipe", "pipe"],
+  child = await startWorker(directory, port, {
+    CLOUD_ORIGIN: base,
+    CLOUD_DEMO_ENABLED: "true",
+    CLOUD_DATA_ENCRYPTION_KEY:
+      "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    MAILER_WEBHOOK_URL: `http://127.0.0.1:${mailPort}/mail`,
+    YOOKASSA_SHOP_ID: "test-shop",
+    YOOKASSA_SECRET_KEY: "test-secret",
+    YOOKASSA_API_URL: `http://127.0.0.1:${ykPort}`,
+    YOOKASSA_VERIFY_WEBHOOK_IP: "true",
+    CLOUD_INTERNAL_SECRET: "test-internal-secret",
+    TIMEWEB_TOKEN: "",
+    CLOUD_SALES_ENABLED: "true",
   });
   child.stdout.on("data", (chunk) => {
     logs += chunk;
@@ -148,18 +176,18 @@ after(async () => {
   if (directory) await rm(directory, { recursive: true, force: true });
 });
 
-function client() {
+function client(endpoint = base) {
   let cookie = "";
   return {
     async request(route, body, options = {}) {
       const method = options.method ?? (body === undefined ? "GET" : "POST");
       const hasJsonBody = body !== undefined;
-      const response = await fetch(base + route, {
+      const response = await fetch(endpoint + route, {
         method,
         redirect: "manual",
         headers: {
           ...(cookie ? { Cookie: cookie } : {}),
-          ...(method !== "GET" ? { Origin: base } : {}),
+          ...(method !== "GET" ? { Origin: endpoint } : {}),
           ...(hasJsonBody ? { "Content-Type": "application/json" } : {}),
           ...options.headers,
         },
@@ -704,7 +732,9 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-real-ip": "203.0.113.10",
+      "cf-connecting-ip": "203.0.113.10",
+      "x-real-ip": "127.0.0.1",
+      "x-forwarded-for": "127.0.0.1",
     },
     body: JSON.stringify({
       type: "notification",
@@ -719,7 +749,7 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-real-ip": "127.0.0.1",
+      "cf-connecting-ip": "127.0.0.1",
     },
     body: JSON.stringify({
       type: "notification",
@@ -735,11 +765,11 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
   stored.status = "succeeded";
   stored.paid = true;
 
-  const validWebhook = await fetch(`${base}/api/webhooks/yookassa`, {
+  const sendWebhook = () => fetch(`${base}/api/webhooks/yookassa`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "x-real-ip": "127.0.0.1",
+      "cf-connecting-ip": "127.0.0.1",
     },
     body: JSON.stringify({
       type: "notification",
@@ -747,7 +777,8 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
       object: { id: externalId },
     }),
   });
-  assert.equal(validWebhook.status, 200);
+  const webhooks = await Promise.all([sendWebhook(), sendWebhook()]);
+  assert.deepEqual(webhooks.map((response) => response.status), [200, 200]);
 
   // Duplicate sync must be strictly idempotent (balance stays 1000, not 2000).
   const manualSync = await unverified.request(
@@ -771,30 +802,6 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
     requestKey: "paid-vps-order-1",
   });
   assert.equal(order1.status, 200);
-  const pay1 = await unverified.request(`/api/orders/${order1.data.id}/pay`, {});
-  assert.equal(pay1.status, 200);
-  assert.equal(pay1.data.status, "paid");
-  assert.equal(pay1.data.balanceRub, 110);
-
-  // Re-paying the same order is idempotent.
-  const pay1Again = await unverified.request(`/api/orders/${order1.data.id}/pay`, {});
-  assert.equal(pay1Again.status, 200);
-  assert.equal(pay1Again.data.alreadyPaid, true);
-  assert.equal(pay1Again.data.balanceRub, 110);
-
-  // Paid orders cannot be deleted from order history.
-  assert.equal(
-    (
-      await unverified.request(
-        `/api/orders?id=${encodeURIComponent(order1.data.id)}`,
-        undefined,
-        { method: "DELETE" },
-      )
-    ).status,
-    409,
-  );
-
-  // Second order (890 RUB) fails with 402 due to insufficient funds (110 RUB).
   const order2 = await unverified.request("/api/orders", {
     kind: "vps",
     plan: "project",
@@ -803,11 +810,29 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
     location: "Москва",
     requestKey: "paid-vps-order-2",
   });
+  assert.equal(order2.status, 200);
+  const orders = [order1, order2];
+  const payments = await Promise.all(orders.map((order) =>
+    unverified.request(`/api/orders/${order.data.id}/pay`, {}),
+  ));
+  assert.deepEqual(payments.map((payment) => payment.status).sort(), [200, 402]);
+  const winner = payments.findIndex((payment) => payment.status === 200);
+  assert.equal(payments[winner].data.status, "paid");
+  assert.equal(payments[winner].data.balanceRub, 110);
+
+  const paidId = orders[winner].data.id;
+  const duplicate = await unverified.request(`/api/orders/${paidId}/pay`, {});
+  assert.equal(duplicate.status, 200);
+  assert.equal(duplicate.data.alreadyPaid, true);
+  assert.equal(duplicate.data.balanceRub, 110);
+  const balance = (await unverified.request("/api/account")).data;
+  assert.equal(balance.balance, 110);
+  assert.equal(balance.ledger.filter((entry) => entry.direction === "debit").length, 1);
+
   assert.equal(
-    (await unverified.request(`/api/orders/${order2.data.id}/pay`, {})).status,
-    402,
+    (await unverified.request(`/api/orders?id=${paidId}`, undefined, { method: "DELETE" })).status,
+    409,
   );
-  assert.equal((await unverified.request("/api/account")).data.balance, 110);
 
   // Internal billing tick endpoint rejects unauthorized calls and executes with secret.
   assert.equal(
@@ -826,6 +851,91 @@ test("yookassa topup with 54-FZ receipt, webhook verification, ledger and order 
     suspended: 0,
     terminationQueued: 0,
   });
+  const cron = await fetch(`${base}/__scheduled?cron=${encodeURIComponent("*/5 * * * *")}`);
+  assert.equal(cron.status, 200, await cron.text());
+
+  // Make the paid test subscription due in the same temporary D1 used by workerd.
+  assert.match(paidId, /^[0-9a-f-]{36}$/);
+  const due = Date.now() - 1000;
+  await exec(process.execPath, [
+    wrangler, "d1", "execute", "DB", "--local", "--persist-to", path.join(directory, "d1"),
+    "--command", `UPDATE subscriptions SET next_charge_at=${due},retail_kopecks=5000 WHERE order_id='${paidId}'`,
+  ], { cwd: cloudDirectory, env: wranglerEnv(directory) });
+  const maintenance = () => fetch(`${base}/api/internal/billing`, {
+    method: "POST",
+    headers: { Authorization: "Bearer test-internal-secret" },
+  });
+  const ticks = await Promise.all([maintenance(), maintenance()]);
+  assert.deepEqual(ticks.map((response) => response.status), [200, 200]);
+  const renewed = (await unverified.request("/api/account")).data;
+  assert.equal(renewed.balance, 60);
+  assert.equal(renewed.ledger.filter((entry) => entry.kind === "renewal_charge").length, 1);
+});
+
+test("default Worker keeps payments disabled even with provider credentials", async () => {
+  const state = await mkdtemp(path.join(tmpdir(), "kernell-cloud-readonly-"));
+  const listener = createServer();
+  await new Promise((resolve) => listener.listen(0, "127.0.0.1", resolve));
+  const port = listener.address().port;
+  await new Promise((resolve) => listener.close(resolve));
+  const endpoint = `http://127.0.0.1:${port}`;
+  const origin = "https://preview.example.test";
+  const email = "read-only@example.test";
+  const beforePayments = yookassaCreateRequests.length;
+  const worker = await startWorker(state, port, {
+    CLOUD_ORIGIN: origin,
+    MAILER_WEBHOOK_URL: `http://127.0.0.1:${mailServer.address().port}/mail`,
+    YOOKASSA_SHOP_ID: "test-shop",
+    YOOKASSA_SECRET_KEY: "test-secret",
+    YOOKASSA_API_URL: `http://127.0.0.1:${yookassaServer.address().port}`,
+    TIMEWEB_TOKEN: "",
+    CLOUD_INTERNAL_SECRET: "test-internal-secret",
+  });
+  let output = "";
+  worker.stdout.on("data", (data) => { output += data; });
+  worker.stderr.on("data", (data) => { output += data; });
+  try {
+    let ready = false;
+    for (let attempt = 0; attempt < 100 && worker.exitCode === null; attempt++) {
+      ready = await fetch(endpoint, { signal: AbortSignal.timeout(1500) })
+        .then((response) => response.ok)
+        .catch(() => false);
+      if (ready) break;
+      await delay(150);
+    }
+    assert.ok(ready, output);
+    const guest = client(endpoint);
+    const request = (route, body) => guest.request(route, body, { headers: { Origin: origin } });
+    const account = await request("/api/auth/register", { ...credentials, email });
+    assert.equal(account.status, 200);
+    assert.match(account.headers.get("set-cookie"), /;\s*Secure(?:;|$)/i);
+    const token = deliveredMails.find((message) => message.to === email)?.text.match(/token=([0-9a-f]{64})/)?.[1];
+    assert.ok(token);
+    assert.equal((await request("/api/auth/verify-email", { token })).status, 200);
+    const topup = await request("/api/billing/topup", { amountRub: 1000, requestKey: "read-only-topup" });
+    assert.equal(topup.status, 503);
+    const draft = await request("/api/orders", {
+      kind: "vps",
+      name: "preview-server",
+      plan: "project",
+      os: "Ubuntu 24.04",
+      location: "Москва",
+      requestKey: "read-only-order",
+    });
+    assert.equal(draft.status, 200);
+    assert.equal((await request(`/api/orders/${draft.data.id}/pay`, {})).status, 503);
+    assert.equal((await guest.request("/api/account")).data.yookassaEnabled, false);
+    assert.equal(yookassaCreateRequests.length, beforePayments);
+    const cron = await fetch(`${endpoint}/__scheduled?cron=${encodeURIComponent("*/5 * * * *")}`);
+    assert.equal(cron.status, 200, await cron.text());
+  } finally {
+    if (worker.exitCode === null) {
+      const stopped = new Promise((resolve) => worker.once("exit", resolve));
+      worker.kill("SIGTERM");
+      await stopped;
+    }
+    await rm(state, { recursive: true, force: true });
+  }
 });
 
 describe("phase 3 & 4: live Timeweb provisioning, infra, domain mail and isolation", () => {
@@ -1769,28 +1879,21 @@ describe("phase 3 & 4: live Timeweb provisioning, infra, domain mail and isolati
     await new Promise((resolve) => listener.close(resolve));
     twBase = `http://127.0.0.1:${port}`;
 
-    twChild = spawn(process.execPath, ["scripts/start-cloud.mjs"], {
-      cwd: process.cwd(),
-      env: {
-        ...process.env,
-        PORT: String(port),
-        CLOUD_HOSTNAME: "127.0.0.1",
-        CLOUD_DATABASE_PATH: path.join(twDir, "live.sqlite"),
-        CLOUD_ORIGIN: twBase,
-        CLOUD_DEMO_ENABLED: "true",
-        CLOUD_DATA_ENCRYPTION_KEY:
-          "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
-        MAILER_WEBHOOK_URL: `http://127.0.0.1:${twMailPort}/mail`,
-        YOOKASSA_SHOP_ID: "test-shop",
-        YOOKASSA_SECRET_KEY: "test-secret",
-        YOOKASSA_API_URL: `http://127.0.0.1:${twYkPort}`,
-        YOOKASSA_VERIFY_WEBHOOK_IP: "true",
-        CLOUD_INTERNAL_SECRET: "test-internal-secret",
-        TIMEWEB_TOKEN: "test-tw-token",
-        TIMEWEB_API_URL: `http://127.0.0.1:${twPort}`,
-        TIMEWEB_WEBHOOK_SECRET: "tw-hook-secret",
-      },
-      stdio: ["ignore", "pipe", "pipe"],
+    twChild = await startWorker(twDir, port, {
+      CLOUD_ORIGIN: twBase,
+      CLOUD_DEMO_ENABLED: "true",
+      CLOUD_DATA_ENCRYPTION_KEY:
+        "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+      MAILER_WEBHOOK_URL: `http://127.0.0.1:${twMailPort}/mail`,
+      YOOKASSA_SHOP_ID: "test-shop",
+      YOOKASSA_SECRET_KEY: "test-secret",
+      YOOKASSA_API_URL: `http://127.0.0.1:${twYkPort}`,
+      YOOKASSA_VERIFY_WEBHOOK_IP: "true",
+      CLOUD_INTERNAL_SECRET: "test-internal-secret",
+      TIMEWEB_TOKEN: "test-tw-token",
+      TIMEWEB_API_URL: `http://127.0.0.1:${twPort}`,
+      TIMEWEB_WEBHOOK_SECRET: "tw-hook-secret",
+      CLOUD_SALES_ENABLED: "true",
     });
     let twLogs = "";
     twChild.stdout.on("data", (c) => {

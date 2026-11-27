@@ -1,0 +1,37 @@
+name: Kernell Cloud Workers
+
+on:
+  push:
+    branches: [cloud-portal]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kernell-cloud-workers
+  cancel-in-progress: false
+
+jobs:
+  build-and-test:
+    if: github.ref == 'refs/heads/cloud-portal'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run build:cloud
+      - run: npm run test:cloud
+      - if: vars.CLOUD_WORKERS_DEPLOY == 'true'
+        name: Migrate D1 and deploy the tested Worker
+        run: |
+          npm run db:cloud:remote
+          npm run deploy:cloud
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ vars.CLOUDFLARE_ACCOUNT_ID }}
+          CLOUDFLARE_D1_DATABASE_ID: ${{ vars.CLOUDFLARE_D1_DATABASE_ID }}
+          CLOUDFLARE_WORKERS_ORIGIN: ${{ vars.CLOUDFLARE_WORKERS_ORIGIN }}

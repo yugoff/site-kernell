@@ -3,7 +3,7 @@ import { accountFor } from "@cloud/lib/database";
 export const runtime = "nodejs";
 export async function GET() {
   try {
-    return Response.json(accountFor(await apiUser()), {
+    return Response.json(await accountFor(await apiUser()), {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {

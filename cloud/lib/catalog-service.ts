@@ -1,7 +1,7 @@
 import "server-only";
 import { domainToASCII, domainToUnicode } from "node:url";
 import { db } from "./database";
-import { calculateRetailPrice } from "./pricing";
+import { loadPriceCalculator } from "./pricing";
 import { locations as fallbackLocations, operatingSystems as fallbackOs, plans as fallbackPlans, zones as fallbackZones } from "./catalog";
 import {
   fetchAiModels,
@@ -58,7 +58,6 @@ type CacheRow = {
 };
 
 const CACHE_TTL_MS = 3_600_000;
-const inFlight = new Map<string, Promise<unknown>>();
 
 async function loadCached<T>(
   cacheKey: string,
@@ -66,7 +65,7 @@ async function loadCached<T>(
   ttlMs = CACHE_TTL_MS,
 ): Promise<{ data: T | null; source: CatalogSource; fetchedAt: number | null }> {
   const sql = db();
-  const existing = sql
+  const existing = await sql
     .prepare(
       "SELECT category,payload_json,fetched_at,expires_at,source FROM provider_catalog_cache WHERE category=?",
     )
@@ -100,18 +99,10 @@ async function loadCached<T>(
     return { data: null, source: "fallback", fetchedAt: null };
   }
 
-  let promise = inFlight.get(cacheKey) as Promise<T> | undefined;
-  if (!promise) {
-    promise = fetcher().finally(() => {
-      inFlight.delete(cacheKey);
-    });
-    inFlight.set(cacheKey, promise);
-  }
-
   try {
-    const fresh = await promise;
+    const fresh = await fetcher();
     const fetchedAt = Date.now();
-    sql
+    await sql
       .prepare(
         "INSERT INTO provider_catalog_cache (category,payload_json,fetched_at,expires_at,source) VALUES (?,?,?,?,'timeweb') ON CONFLICT(category) DO UPDATE SET payload_json=excluded.payload_json,fetched_at=excluded.fetched_at,expires_at=excluded.expires_at,source='timeweb'",
       )
@@ -133,16 +124,18 @@ async function loadCached<T>(
   }
 }
 
-function priceRecords<T extends Record<string, unknown>>(
+async function priceRecords<T extends Record<string, unknown>>(
   items: T[],
   category: CatalogCategory,
   costField: "price" | "cost" | "cost_per_gb" = "price",
   keyField: string = "id",
 ) {
+  if (!items.length) return [];
+  const price = await loadPriceCalculator(category);
   return items.map((item) => {
     const rawCost = Number(item[costField] ?? 0);
     const key = item[keyField] !== undefined ? String(item[keyField]) : "";
-    const pricing = calculateRetailPrice(rawCost, category, key);
+    const pricing = price(rawCost, key);
     return {
       ...item,
       costPrice: pricing.costPrice,
@@ -195,13 +188,13 @@ export async function getPublishedTldsRaw(): Promise<{
   };
 }
 
-export async function getDomainZonesCatalog(): Promise<{
+export async function getDomainZonesCatalog(published?: Awaited<ReturnType<typeof getPublishedTldsRaw>>): Promise<{
   zones: DomainZoneOffering[];
   allPublishedCount: number;
   source: CatalogSource;
   fetchedAt: number | null;
 }> {
-  const { tlds, source, fetchedAt } = await getPublishedTldsRaw();
+  const { tlds, source, fetchedAt } = published ?? await getPublishedTldsRaw();
   if (!tlds.length) {
     return {
       zones: fallbackZones.map((item) => ({
@@ -227,6 +220,7 @@ export async function getDomainZonesCatalog(): Promise<{
   }
 
   const mapped: DomainZoneOffering[] = [];
+  const price = await loadPriceCalculator("domains");
   for (const tld of tlds) {
     if (!tld.is_published || typeof tld.name !== "string") continue;
     const raw = tld.name.replace(/^\./, "");
@@ -234,20 +228,11 @@ export async function getDomainZonesCatalog(): Promise<{
     const zone = domainToUnicode(raw) || raw;
     if (!asciiZone) continue;
 
-    const reg = calculateRetailPrice(tld.price, "domains", asciiZone);
-    const ren = calculateRetailPrice(
-      tld.prolong_price || tld.price,
-      "domains",
-      asciiZone,
-    );
-    const trf = calculateRetailPrice(
-      tld.transfer || tld.price,
-      "domains",
-      asciiZone,
-    );
+    const reg = price(tld.price, asciiZone);
+    const ren = price(tld.prolong_price || tld.price, asciiZone);
+    const trf = price(tld.transfer || tld.price, asciiZone);
     const priv = tld.whois_privacy_price
-      ? calculateRetailPrice(tld.whois_privacy_price, "domains", asciiZone)
-          .retailPrice
+      ? price(tld.whois_privacy_price, asciiZone).retailPrice
       : 0;
     const rawPeriods = Array.isArray(tld.allowed_buy_periods)
       ? tld.allowed_buy_periods
@@ -348,7 +333,7 @@ export async function getVpsCatalogData(): Promise<{
     presetsRes.source === "fallback" ? "fallback" : presetsRes.source;
 
   const presets: PricedVpsPreset[] = presetsRes.data?.length
-    ? (priceRecords(presetsRes.data, "vps") as PricedVpsPreset[])
+    ? (await priceRecords(presetsRes.data, "vps") as PricedVpsPreset[])
     : fallbackPlans.map((plan, index) => ({
         id: index + 1,
         slug: plan.id,
@@ -399,7 +384,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "dedicated"),
+      presets: await priceRecords(res.data ?? [], "dedicated"),
     };
   },
   s3: async () => {
@@ -407,7 +392,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "s3"),
+      presets: await priceRecords(res.data ?? [], "s3"),
     };
   },
   balancers: async () => {
@@ -415,7 +400,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "balancers"),
+      presets: await priceRecords(res.data ?? [], "balancers"),
     };
   },
   cdn: async () => {
@@ -423,7 +408,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "cdn", "cost"),
+      presets: await priceRecords(res.data ?? [], "cdn", "cost"),
     };
   },
   registries: async () => {
@@ -431,7 +416,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "registries"),
+      presets: await priceRecords(res.data ?? [], "registries"),
     };
   },
   routers: async () => {
@@ -439,7 +424,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "routers", "cost"),
+      presets: await priceRecords(res.data ?? [], "routers", "cost"),
     };
   },
   network_drives: async () => {
@@ -450,7 +435,7 @@ const simpleCategoryLoaders: Record<
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      presets: priceRecords(res.data ?? [], "network_drives", "cost_per_gb"),
+      presets: await priceRecords(res.data ?? [], "network_drives", "cost_per_gb"),
     };
   },
 };
@@ -471,7 +456,7 @@ export async function getCatalogByCategory(
       source: presetsRes.source,
       fetchedAt: presetsRes.fetchedAt,
       types: typesRes.data ?? [],
-      presets: priceRecords(presetsRes.data ?? [], "databases"),
+      presets: await priceRecords(presetsRes.data ?? [], "databases"),
       configurators: confRes.data ?? [],
     };
   }
@@ -485,7 +470,7 @@ export async function getCatalogByCategory(
     return {
       source: presetsRes.source,
       fetchedAt: presetsRes.fetchedAt,
-      presets: priceRecords(presetsRes.data ?? [], "k8s"),
+      presets: await priceRecords(presetsRes.data ?? [], "k8s"),
       versions: versionsRes.data ?? [],
       networkDrivers: driversRes.data ?? [],
     };
@@ -496,8 +481,8 @@ export async function getCatalogByCategory(
     return {
       source: res.source,
       fetchedAt: res.fetchedAt,
-      backendPresets: priceRecords(res.data?.backend_presets ?? [], "apps"),
-      frontendPresets: priceRecords(res.data?.frontend_presets ?? [], "apps"),
+      backendPresets: await priceRecords(res.data?.backend_presets ?? [], "apps"),
+      frontendPresets: await priceRecords(res.data?.frontend_presets ?? [], "apps"),
     };
   }
 
@@ -515,8 +500,8 @@ export async function getCatalogByCategory(
       source: modelsRes.source,
       fetchedAt: modelsRes.fetchedAt,
       models: modelsRes.data ?? [],
-      agentTokenPackages: priceRecords(agentPkgRes.data ?? [], "ai"),
-      knowledgeBaseTokenPackages: priceRecords(kbPkgRes.data ?? [], "ai"),
+      agentTokenPackages: await priceRecords(agentPkgRes.data ?? [], "ai"),
+      knowledgeBaseTokenPackages: await priceRecords(kbPkgRes.data ?? [], "ai"),
     };
   }
 

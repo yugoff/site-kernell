@@ -1,4 +1,5 @@
 import "server-only";
+import { cloudSetting } from "./settings";
 
 export type MailMessage = {
   to: string;
@@ -8,7 +9,7 @@ export type MailMessage = {
 };
 
 function publicOrigin(): string {
-  return (process.env.CLOUD_ORIGIN || "https://cloud.kernell.ru").replace(
+  return (cloudSetting("CLOUD_ORIGIN") || "https://cloud.kernell.ru").replace(
     /\/$/,
     "",
   );
@@ -19,12 +20,12 @@ function publicOrigin(): string {
  * (MAILER_WEBHOOK_URL). In early preview without a mail gateway, delivery is a no-op.
  */
 export async function sendMail(message: MailMessage): Promise<boolean> {
-  const webhookUrl = process.env.MAILER_WEBHOOK_URL?.trim();
+  const webhookUrl = cloudSetting("MAILER_WEBHOOK_URL")?.trim();
   if (!webhookUrl) {
     return false;
   }
 
-  const webhookToken = process.env.MAILER_WEBHOOK_TOKEN?.trim();
+  const webhookToken = cloudSetting("MAILER_WEBHOOK_TOKEN")?.trim();
   const response = await fetch(webhookUrl, {
     method: "POST",
     headers: {
@@ -33,7 +34,7 @@ export async function sendMail(message: MailMessage): Promise<boolean> {
     },
     body: JSON.stringify(message),
     cache: "no-store",
-    redirect: "error",
+    redirect: "manual",
     signal: AbortSignal.timeout(5000),
   });
   if (!response.ok) {

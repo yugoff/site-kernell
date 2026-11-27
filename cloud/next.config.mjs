@@ -1,13 +1,14 @@
 import path from "node:path";
 import { fileURLToPath } from "node:url";
+import { initOpenNextCloudflareForDev } from "@opennextjs/cloudflare";
 
 const directory = path.dirname(fileURLToPath(import.meta.url));
-// Keep dev data inside this app even when Next is launched from the repo root.
-process.env.CLOUD_DATABASE_PATH ??= path.join(
-  directory,
-  ".data",
-  "cloud.sqlite",
-);
+if (process.env.NODE_ENV === "development") {
+  initOpenNextCloudflareForDev({
+    configPath: path.join(directory, "wrangler.jsonc"),
+    remoteBindings: false,
+  });
+}
 
 const origin = process.env.CLOUD_ORIGIN;
 const devOrigin = process.env.NODE_ENV === "development" && origin

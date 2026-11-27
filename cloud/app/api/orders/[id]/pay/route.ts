@@ -19,7 +19,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await apiUser();
-    rateLimit(`order-pay:${user.id}`, 30);
+    await rateLimit(`order-pay:${user.id}`, 30);
     const raw = await request.text();
     let parsed: Record<string, unknown> = {};
     if (raw.trim()) {
@@ -37,11 +37,11 @@ export async function POST(
     const { id } = await context.params;
     const personId =
       typeof parsed.personId === "string" ? parsed.personId : undefined;
-    const result = payOrderFromWallet(user, id, { personId });
+    const result = await payOrderFromWallet(user, id, { personId });
 
     if (!result.alreadyPaid && result.jobId && timewebToken()) {
       const outcome = await processSingleProvisioningJob(result.jobId);
-      const currentOrder = db()
+      const currentOrder = await db()
         .prepare("SELECT status FROM orders WHERE id=? AND user_id=?")
         .get(id, user.id) as { status: string } | undefined;
 
@@ -56,7 +56,7 @@ export async function POST(
           status: currentOrder?.status || result.status,
           alreadyPaid: false,
           serviceId: "serviceId" in outcome ? outcome.serviceId : null,
-          balanceRub: ledgerBalanceRub(user.id),
+          balanceRub: await ledgerBalanceRub(user.id),
         },
         { headers: { "Cache-Control": "private, no-store" } },
       );

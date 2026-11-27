@@ -8,7 +8,7 @@ import {
   rateLimit,
 } from "@cloud/lib/auth";
 import type { ServiceKind } from "@cloud/lib/catalog";
-import { db, logActivity, transaction } from "@cloud/lib/database";
+import { activityStatement, batch, db } from "@cloud/lib/database";
 import {
   resolveDomainOrderSpec,
   resolveInfraOrderSpec,
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
     checkOrigin(request);
     const user = await apiUser();
     const body = await jsonBody(request);
-    rateLimit(`orders:${user.id}`, 30);
+    await rateLimit(`orders:${user.id}`, 30);
     const key = typeof body.requestKey === "string" ? body.requestKey : "";
     if (!/^[\w-]{10,80}$/.test(key))
       throw new ApiError(400, "Обновите форму заказа.");
@@ -56,17 +56,13 @@ export async function POST(request: Request) {
     }
 
     const nowIso = new Date().toISOString();
-    const orderId = transaction(() => {
-      const previous = db()
-        .prepare("SELECT id FROM orders WHERE user_id=? AND request_key=?")
-        .get(user.id, key) as { id: string } | undefined;
-      if (previous) return previous.id;
-      const id = randomUUID();
+    const id = randomUUID();
+    const [, , orderResult] = await batch(
       db()
         .prepare(
-          "INSERT INTO orders (id,user_id,title,amount,created,status,request_key,kind,cost_amount,retail_amount,provider_payload,updated_at) VALUES (?,?,?,?,?,'draft',?,?,?,?,?,?)",
+          "INSERT INTO orders (id,user_id,title,amount,created,status,request_key,kind,cost_amount,retail_amount,provider_payload,updated_at) VALUES (?,?,?,?,?,'draft',?,?,?,?,?,?) ON CONFLICT(user_id,request_key) DO NOTHING",
         )
-        .run(
+        .bind(
           id,
           user.id,
           spec.title,
@@ -78,15 +74,17 @@ export async function POST(request: Request) {
           spec.retailAmount,
           JSON.stringify(spec.payload),
           nowIso,
-        );
-      logActivity(user.id, `Сохранён заказ: ${spec.title}`);
-      return id;
-    });
+        ),
+      activityStatement(user.id, `Сохранён заказ: ${spec.title}`, true),
+      db().prepare("SELECT id,status,amount FROM orders WHERE user_id=? AND request_key=?")
+        .bind(user.id, key),
+    );
+    const order = orderResult.results[0] as { id: string; status: string; amount: number };
 
     return Response.json({
-      id: orderId,
-      status: "draft",
-      amount: spec.retailAmount,
+      id: order.id,
+      status: order.status,
+      amount: order.amount,
       message: "Заказ сохранён. Его можно оплатить с баланса в разделе «Заказы».",
     });
   } catch (error) {
@@ -94,34 +92,24 @@ export async function POST(request: Request) {
   }
 }
 
-const DELETABLE_ORDER_STATUSES = new Set(["draft", "demo", "failed"]);
-
 export async function DELETE(request: Request) {
   try {
     checkOrigin(request);
     const user = await apiUser();
-    rateLimit(`orders-delete:${user.id}`, 30);
+    await rateLimit(`orders-delete:${user.id}`, 30);
     const id = new URL(request.url).searchParams.get("id")?.trim() || "";
     if (!id || id.length > 80) throw new ApiError(400, "Укажите заказ.");
 
-    transaction(() => {
-      const existing = db()
-        .prepare("SELECT id,title,status FROM orders WHERE id=? AND user_id=?")
-        .get(id, user.id) as
-        | { id: string; title: string; status: string }
-        | undefined;
-      if (!existing) throw new ApiError(404, "Заказ не найден.");
-      if (!DELETABLE_ORDER_STATUSES.has(existing.status)) {
-        throw new ApiError(
-          409,
-          "Оплаченный или выполняемый заказ нельзя удалить.",
-        );
-      }
-      db()
-        .prepare("DELETE FROM orders WHERE id=? AND user_id=?")
-        .run(existing.id, user.id);
-      logActivity(user.id, `Удалён заказ: ${existing.title}`);
-    });
+    const [deleted, , existing] = await batch(
+      db().prepare("DELETE FROM orders WHERE id=? AND user_id=? AND status IN ('draft','demo','failed')")
+        .bind(id, user.id),
+      activityStatement(user.id, "Удалён заказ", true),
+      db().prepare("SELECT id FROM orders WHERE id=? AND user_id=?").bind(id, user.id),
+    );
+    if (!deleted.meta.changes) {
+      if (!existing.results.length) throw new ApiError(404, "Заказ не найден.");
+      throw new ApiError(409, "Оплаченный или выполняемый заказ нельзя удалить.");
+    }
 
     return Response.json({ deleted: true, id });
   } catch (error) {

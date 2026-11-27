@@ -15,7 +15,7 @@ export async function POST(
   try {
     checkOrigin(request);
     const user = await apiUser();
-    rateLimit(`pay-sync:${user.id}`, 30);
+    await rateLimit(`pay-sync:${user.id}`, 30);
     const { id } = await context.params;
     const result = await syncUserPaymentById(user.id, id);
     return Response.json(result, {

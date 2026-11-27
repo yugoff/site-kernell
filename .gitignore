@@ -7,8 +7,12 @@ presentations/
 # /brag: рабочие файлы ролика (готовые копии лежат в public/v2/)
 brag-output/
 cloud/.data/
+cloud/.open-next/
+cloud/.wrangler/
+cloud/wrangler.deploy.*.json
+cloud/.dev.vars*
+!cloud/.dev.vars.example
 cloud/.env*
-!cloud/.env.example
 /.env
 CLAUDE.md
 out-chess

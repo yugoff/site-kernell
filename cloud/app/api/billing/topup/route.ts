@@ -14,7 +14,7 @@ export async function POST(request: Request) {
   try {
     checkOrigin(request);
     const user = await apiUser();
-    rateLimit(`topup:${user.id}`, 20);
+    await rateLimit(`topup:${user.id}`, 20);
     const body = await jsonBody(request);
     const amountRub = Number(body.amountRub);
     const requestKey =

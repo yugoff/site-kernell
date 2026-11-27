@@ -1,4 +1,5 @@
 import "server-only";
+import { cloudSetting } from "./settings";
 import { cookies } from "next/headers";
 import {
   createHash,
@@ -8,7 +9,7 @@ import {
 } from "node:crypto";
 import { promisify } from "node:util";
 import { redirect } from "next/navigation";
-import { db } from "./database";
+import { batch, db } from "./database";
 import type { User } from "./catalog";
 
 const scrypt = promisify(scryptCallback);
@@ -50,7 +51,7 @@ export function publicUser(row: {
 export async function currentUser(): Promise<User | null> {
   const token = (await cookies()).get(cookieName)?.value;
   if (!token || token.length > 100) return null;
-  const row = db()
+  const row = await db()
     .prepare(
       "SELECT u.id,u.name,u.email,u.demo,u.email_verified_at FROM sessions s JOIN users u ON u.id=s.user_id WHERE s.token=? AND s.expires>?",
     )
@@ -77,17 +78,18 @@ export async function startSession(user: User) {
   const lifetime = user.demo ? 86400 : 604800;
   const jar = await cookies();
   const previous = jar.get(cookieName)?.value;
-  if (previous)
-    db().prepare("DELETE FROM sessions WHERE token=?").run(tokenHash(previous));
-  db().prepare("DELETE FROM sessions WHERE expires<?").run(Date.now());
-  db()
-    .prepare("INSERT INTO sessions (token,user_id,expires) VALUES (?,?,?)")
-    .run(tokenHash(token), user.id, Date.now() + lifetime * 1000);
+  const now = Date.now();
+  await batch(
+    db().prepare("DELETE FROM sessions WHERE token=? OR expires<?")
+      .bind(previous ? tokenHash(previous) : null, now),
+    db().prepare("INSERT INTO sessions (token,user_id,expires) VALUES (?,?,?)")
+      .bind(tokenHash(token), user.id, now + lifetime * 1000),
+  );
   jar.set(cookieName, token, {
     httpOnly: true,
     sameSite: "lax",
     secure:
-      process.env.CLOUD_ORIGIN?.startsWith("https://") ??
+      cloudSetting("CLOUD_ORIGIN")?.startsWith("https://") ??
       process.env.NODE_ENV === "production",
     path: "/",
     maxAge: lifetime,
@@ -98,7 +100,7 @@ export async function endSession() {
   const jar = await cookies();
   const token = jar.get(cookieName)?.value;
   if (token)
-    db().prepare("DELETE FROM sessions WHERE token=?").run(tokenHash(token));
+    await db().prepare("DELETE FROM sessions WHERE token=?").run(tokenHash(token));
   jar.delete(cookieName);
 }
 
@@ -113,7 +115,7 @@ export class ApiError extends Error {
 
 export function checkOrigin(request: Request) {
   const origin = request.headers.get("origin");
-  const expected = process.env.CLOUD_ORIGIN || new URL(request.url).origin;
+  const expected = cloudSetting("CLOUD_ORIGIN") || new URL(request.url).origin;
   if (origin === expected) return;
   // Next dev may put localhost in request.url even when the browser uses 127.0.0.1.
   if (process.env.NODE_ENV === "development" && origin) {
@@ -155,15 +157,18 @@ export async function jsonBody(
 }
 
 // Persisted across restarts. Global and account-scoped buckets don't trust proxy IP headers.
-export function rateLimit(key: string, maximum: number, windowMs = 900000) {
+export async function rateLimit(key: string, maximum: number, windowMs = 900000) {
   const sql = db();
   const now = Date.now();
-  sql.prepare("DELETE FROM rate_limits WHERE resets<?").run(now);
-  const row = sql
+  const row = await sql
     .prepare(
-      "INSERT INTO rate_limits (key,count,resets) VALUES (?,1,?) ON CONFLICT(key) DO UPDATE SET count=count+1 RETURNING count",
+      `INSERT INTO rate_limits (key,count,resets) VALUES (?,1,?)
+       ON CONFLICT(key) DO UPDATE SET
+         count=CASE WHEN rate_limits.resets<=? THEN 1 ELSE rate_limits.count+1 END,
+         resets=CASE WHEN rate_limits.resets<=? THEN excluded.resets ELSE rate_limits.resets END
+       RETURNING count`,
     )
-    .get(key, now + windowMs) as { count: number };
+    .get(key, now + windowMs, now, now) as { count: number };
   if (row.count > maximum)
     throw new ApiError(
       429,

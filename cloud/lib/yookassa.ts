@@ -1,4 +1,5 @@
 import "server-only";
+import { cloudSetting } from "./settings";
 import { isIPv4, isIPv6 } from "node:net";
 
 const DEFAULT_YOOKASSA_API = "https://api.yookassa.ru/v3";
@@ -44,23 +45,23 @@ export class YooKassaApiError extends Error {
 }
 
 export function yookassaConfig() {
-  const shopId = process.env.YOOKASSA_SHOP_ID?.trim() || "";
-  const secretKey = process.env.YOOKASSA_SECRET_KEY?.trim() || "";
+  const shopId = cloudSetting("YOOKASSA_SHOP_ID")?.trim() || "";
+  const secretKey = cloudSetting("YOOKASSA_SECRET_KEY")?.trim() || "";
   const apiUrl = (
-    process.env.YOOKASSA_API_URL?.trim() || DEFAULT_YOOKASSA_API
+    cloudSetting("YOOKASSA_API_URL")?.trim() || DEFAULT_YOOKASSA_API
   ).replace(/\/$/, "");
-  const vatCodeRaw = Number(process.env.YOOKASSA_VAT_CODE);
+  const vatCodeRaw = Number(cloudSetting("YOOKASSA_VAT_CODE"));
   const vatCode =
     Number.isInteger(vatCodeRaw) && vatCodeRaw >= 1 && vatCodeRaw <= 12
       ? vatCodeRaw
       : 1;
-  const taxRaw = Number(process.env.YOOKASSA_TAX_SYSTEM_CODE);
+  const taxRaw = Number(cloudSetting("YOOKASSA_TAX_SYSTEM_CODE"));
   const taxSystemCode =
     Number.isInteger(taxRaw) && taxRaw >= 1 && taxRaw <= 6 ? taxRaw : undefined;
   const paymentMode =
-    process.env.YOOKASSA_TOPUP_PAYMENT_MODE?.trim() || "advance";
+    cloudSetting("YOOKASSA_TOPUP_PAYMENT_MODE")?.trim() || "advance";
   const paymentSubject =
-    process.env.YOOKASSA_TOPUP_PAYMENT_SUBJECT?.trim() || "payment";
+    cloudSetting("YOOKASSA_TOPUP_PAYMENT_SUBJECT")?.trim() || "payment";
 
   return {
     shopId,
@@ -160,7 +161,7 @@ async function yookassaRequest<T>(
     },
     body: options.body === undefined ? undefined : JSON.stringify(options.body),
     cache: "no-store",
-    redirect: "error",
+    redirect: "manual",
     signal: AbortSignal.timeout(10_000),
   });
 
