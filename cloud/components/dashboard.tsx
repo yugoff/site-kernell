@@ -151,6 +151,59 @@ export function Dashboard({
         service.status === "provisioning" || service.status === "reinstalling",
     );
   useEffect(() => {
+    setMenu(false);
+  }, [section]);
+  useEffect(() => {
+    if (!menu) return;
+    const mobile = window.matchMedia("(max-width: 760px)");
+    if (!mobile.matches) {
+      setMenu(false);
+      return;
+    }
+    const html = document.documentElement;
+    const body = document.body;
+    const scrollY = window.scrollY;
+    const prev = {
+      htmlOverflow: html.style.overflow,
+      htmlOverscroll: html.style.overscrollBehavior,
+      htmlScrollBehavior: html.style.scrollBehavior,
+      bodyOverflow: body.style.overflow,
+      bodyPosition: body.style.position,
+      bodyTop: body.style.top,
+      bodyLeft: body.style.left,
+      bodyRight: body.style.right,
+    };
+    html.style.overflow = "hidden";
+    html.style.overscrollBehavior = "none";
+    body.style.overflow = "hidden";
+    body.style.position = "fixed";
+    body.style.top = `-${scrollY}px`;
+    body.style.left = "0";
+    body.style.right = "0";
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") setMenu(false);
+    };
+    const onViewportChange = () => {
+      if (!mobile.matches) setMenu(false);
+    };
+    window.addEventListener("keydown", onKey);
+    mobile.addEventListener("change", onViewportChange);
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      mobile.removeEventListener("change", onViewportChange);
+      html.style.overflow = prev.htmlOverflow;
+      html.style.overscrollBehavior = prev.htmlOverscroll;
+      body.style.overflow = prev.bodyOverflow;
+      body.style.position = prev.bodyPosition;
+      body.style.top = prev.bodyTop;
+      body.style.left = prev.bodyLeft;
+      body.style.right = prev.bodyRight;
+      html.style.scrollBehavior = "auto";
+      window.scrollTo(0, scrollY);
+      html.style.scrollBehavior = prev.htmlScrollBehavior;
+    };
+  }, [menu]);
+  useEffect(() => {
     if (!hasPendingServices) return;
     const interval = setInterval(() => {
       void api("/api/account")
@@ -427,7 +480,12 @@ export function Dashboard({
   }
   return (
     <div className="dashboard">
-      <aside className={`sidebar ${menu ? "is-open" : ""}`}>
+      <aside
+        className={`sidebar ${menu ? "is-open" : ""}`}
+        onClick={(event) => {
+          if ((event.target as HTMLElement).closest("a")) setMenu(false);
+        }}
+      >
         <div className="sidebar-logo">
           <Logo />
           <button

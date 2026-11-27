@@ -1501,6 +1501,8 @@ td {
   display: flex;
   flex-direction: column;
   padding: 29px 18px 23px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 .sidebar-logo {
   padding-left: 9px;
@@ -3640,6 +3642,8 @@ td {
     inset: 0;
     background: #21191f60;
     z-index: 80;
+    touch-action: none;
+    overscroll-behavior: none;
   }
   .dashboard-body {
     margin: 0;
