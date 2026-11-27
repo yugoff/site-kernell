@@ -72,12 +72,7 @@ export async function POST(request: Request) {
     const { tlds } = publishedCatalog;
     const catalog = await getDomainZonesCatalog(publishedCatalog);
     const published = tlds.length
-      ? new Set(
-          tlds
-            .filter((item) => item.is_published && typeof item.name === "string")
-            .map((item) => domainToASCII(item.name.replace(/^\./, "")))
-            .filter(Boolean),
-        )
+      ? new Set(catalog.zones.map((item) => item.asciiZone))
       : null;
 
     const results = await Promise.all(candidates.map(async ({ name, zone }) => {

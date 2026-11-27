@@ -230,6 +230,7 @@ export async function getDomainZonesCatalog(published?: Awaited<ReturnType<typeo
 
     const reg = price(tld.price, asciiZone);
     const ren = price(tld.prolong_price || tld.price, asciiZone);
+    if (reg.retailPrice <= 0 || ren.retailPrice <= 0) continue;
     const trf = price(tld.transfer || tld.price, asciiZone);
     const priv = tld.whois_privacy_price
       ? price(tld.whois_privacy_price, asciiZone).retailPrice

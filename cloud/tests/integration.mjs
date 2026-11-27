@@ -1067,6 +1067,7 @@ describe("phase 3 & 4: live Timeweb provisioning, infra, domain mail and isolati
                   { period: "P2Y", price: 598 },
                 ],
               },
+              { id: 4, name: "tw1.ru", price: 0, prolong_price: 0, transfer: 0, is_published: true, is_whois_privacy_enabled: false },
             ],
           });
         }
@@ -2003,6 +2004,21 @@ describe("phase 3 & 4: live Timeweb provisioning, infra, domain mail and isolati
     assert.equal(domCheck.data.results[0].status, "available");
     assert.equal(domCheck.data.prices.shop.orderable, true);
     assert.equal(domCheck.data.prices.shop.registration, 359);
+
+    const domCat = await userA.request("/api/catalog?category=domains");
+    assert.equal(domCat.status, 200);
+    assert.ok(!domCat.data.zones.some((z) => z.zone === "tw1.ru" || z.registration <= 0));
+
+    const freeDomCheck = await userA.request("/api/domains/check", {
+      query: "my-idea.tw1.ru",
+    });
+    assert.equal(freeDomCheck.status, 200);
+    assert.equal(freeDomCheck.data.results[0].status, "unsupported");
+    assert.equal(freeDomCheck.data.prices?.["tw1.ru"], undefined);
+
+    const domainsPage = await userA.request("/domains");
+    assert.equal(domainsPage.status, 200);
+    assert.ok(!domainsPage.data.includes("tw1.ru"));
 
     // 2. SSH keys CRUD and strict ownership isolation.
     const fakePubKey = `ssh-ed25519 ${Buffer.alloc(48, 7).toString("base64")} test@kernell`;
